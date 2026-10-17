@@ -15,7 +15,7 @@
 // It writes NOTHING.
 
 import { adminClient } from '../src/db.js';
-import { WINDOW_DAYS, countByThread, loadWindow, planWindow, windowSwitchOn } from '../src/lib/calendar-window.js';
+import { WINDOW_CAP_PER_PASS, WINDOW_DAYS, countByThread, loadWindow, planWindow, windowSwitchOn } from '../src/lib/calendar-window.js';
 
 const STAGING_REF = 'lukhyylwhhjyihqtghvw';
 const PRODUCTION_REF = 'zfsyyokepyycefbxiblc';
@@ -54,5 +54,6 @@ if (!counts.length) {
   for (const c of counts) console.log(`${c.thread_id}\t${c.live}\t${c.feed_skipped}\t${c.people}\t${c.invitations}\t${titleOf.get(c.thread_id) ?? ''}`);
   const sum = (k: 'live' | 'feed_skipped' | 'people' | 'invitations') => counts.reduce((n, c) => n + c[k], 0);
   console.log(`\nTOTAL: ${counts.length} threads, ${sum('people')} people, ${sum('invitations')} invitations (${sum('feed_skipped')} skipped as feed followers).`);
-  console.log(`At Resend's pace (~2 a second) that is about ${Math.ceil(sum('invitations') * 0.55 / 60)} minute(s) of sending.`);
+  const passes = Math.ceil(sum('invitations') / WINDOW_CAP_PER_PASS);
+  console.log(`At ${WINDOW_CAP_PER_PASS} per pass (one pass every ~5 minutes), the launch takes ${passes} pass(es), about ${passes * 5} minutes; each pass sends for ~${Math.ceil(Math.min(sum('invitations'), WINDOW_CAP_PER_PASS) * 0.55 / 60)} minute(s).`);
 }

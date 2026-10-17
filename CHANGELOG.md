@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.270.2] — 2026-10-17
+
+### Calendar window: claim before send, and at most 200 per pass — nobody gets a session twice, however long the launch (API)
+
+- The coordinator's must-fix before `calendar_window` is ever switched on. At
+  550 ms a mail, a launch of ~1,200 invitations runs for ~11 minutes, longer
+  than the scheduler's 4-minute lease. A second machine or tick could then
+  plan the same gaps before the first had recorded them, and send them again.
+- **Claim before send** (the push pass's rule): the `thread_calendar_held`
+  row is inserted FIRST. `unique (engagement_id, email)` lets exactly one
+  runner win it, and only the winner sends. A failed send gives its claim
+  back, so the next pass retries it. The claim is the record.
+- **At most 200 mails per pass** (~2 minutes), so a pass always ends inside
+  its lease; the rest goes at the next tick.
+- **A session taken out, then published again** gets back into people's
+  calendars. A held row whose last word was CANCEL is a gap: the claim flips
+  it to REQUEST with a conditional update, so exactly one runner wins it. A
+  failed send turns it back to CANCEL rather than deleting the record.
+- **`feedFollows`** is now THE rule for "a calendar follows this feed" (live,
+  read within 14 days). The window uses it, and my.thread's "you won't get
+  separate invitations" (builder 5, v1.270.1) imports it, so the two cannot
+  disagree. Its edges are pinned: exactly 14 days counts; a second more,
+  null, revoked or an unparseable date does not.
+- The dry run now also says how many passes, and roughly how many minutes,
+  the launch would take.
+- Tests (`calendar-window.int.test.ts`, 5) against staging, with mail
+  recorded:
+  - TWO runners at once on the same plan send each invitation exactly once
+    (3 sent, 3 lost);
+  - a pass with a cap of 2 sends 2 and defers 1;
+  - a failed send leaves no claim behind;
+  - a CANCEL row, published again, is invited exactly once by two concurrent
+    runners and reads REQUEST after;
+  - the earlier window and SEND cases still pass.
+
 ## [1.270.1] — 2026-10-17
 
 ### my.thread → You → Calendar: "your calendar follows this feed, so you won't get separate invitations" (my.thread 0.32.4)

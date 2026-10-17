@@ -20,6 +20,7 @@ const sent: Sent[] = [];
 vi.mock('../lib/email/client.js', async (orig) => ({
   ...(await orig<typeof import('../lib/email/client.js')>()),
   sendEmail: async (m: Sent) => {
+    if (m.to.includes('-fails-')) throw new Error('resend 500 (test)');
     sent.push(m);
   },
 }));
@@ -98,8 +99,12 @@ describe('the window', () => {
     expect([...(plan.feedSkipped.get(threadId) ?? [])]).toEqual([email('feed')]);
 
     sent.length = 0;
-    const r = await sendWindow(plan.invites);
-    expect(r).toEqual({ sent: 3, failed: 0 });
+    // TWO runners at once on the same plan (two machines, or a tick that
+    // overlaps a long pass): each gap is claimed by exactly one of them.
+    const [a, b] = await Promise.all([sendWindow(plan.invites), sendWindow(plan.invites)]);
+    expect(a.sent + b.sent).toBe(3);
+    expect(a.lost + b.lost).toBe(3);
+    expect(a.failed + b.failed).toBe(0);
     expect(sent).toHaveLength(3);
     const ics = Buffer.from(sent.find((m) => m.to === email('new') && /soon/.test(m.subject))!.attachments![0]!.content, 'base64').toString('utf8');
     expect(ics).toContain('METHOD:REQUEST');
@@ -114,6 +119,51 @@ describe('the window', () => {
   it('run again: nothing (idempotent)', async () => {
     const { loadWindow, planWindow } = await import('../lib/calendar-window.js');
     expect(planWindow(await loadWindow(now, { threadIds: [threadId] })).invites).toEqual([]);
+  });
+});
+
+describe('the cap and a failed send', () => {
+  it('a pass sends at most `cap`; the rest is deferred to the next', async () => {
+    const { sendWindow } = await import('../lib/calendar-window.js');
+    const fake = (i: number) => ({
+      session: { id: randomUUID(), thread_id: threadId, workspace_id: ws, title: `Cap ${i}`, starts_at: new Date(now.getTime() + 5 * DAY).toISOString(), ends_at: null, location: null, url: null, sequence: 0 },
+      email: email(`cap${i}`),
+      name: null,
+    });
+    sent.length = 0;
+    const r = await sendWindow([fake(1), fake(2), fake(3)], 2);
+    expect(r).toMatchObject({ sent: 2, deferred: 1 });
+    expect(sent).toHaveLength(2);
+  });
+});
+
+describe('a session taken out, then published again', () => {
+  it('a CANCEL row is a gap: the window invites again, flipping it to REQUEST', async () => {
+    const { loadWindow, planWindow, sendWindow } = await import('../lib/calendar-window.js');
+    await service.from('thread_calendar_held').update({ method: 'CANCEL', source: 'send' }).eq('engagement_id', sessions.soon).eq('email', email('new'));
+    const plan = planWindow(await loadWindow(now, { threadIds: [threadId] }));
+    expect(plan.invites.map((i) => `${i.email}:${i.session.id}`)).toEqual([`${email('new')}:${sessions.soon}`]);
+    sent.length = 0;
+    const [a, b] = await Promise.all([sendWindow(plan.invites), sendWindow(plan.invites)]);
+    expect(a.sent + b.sent).toBe(1);
+    expect(sent).toHaveLength(1);
+    const { data } = await service.from('thread_calendar_held').select('method, source').eq('engagement_id', sessions.soon).eq('email', email('new')).single();
+    expect(data).toEqual({ method: 'REQUEST', source: 'window' });
+  });
+});
+
+describe('a send that fails', () => {
+  it('gives its claim back, so the next pass retries it', async () => {
+    const { sendWindow } = await import('../lib/calendar-window.js');
+    const engagement = randomUUID();
+    const inv = {
+      session: { id: engagement, thread_id: threadId, workspace_id: ws, title: 'Fails', starts_at: new Date(now.getTime() + 5 * DAY).toISOString(), ends_at: null, location: null, url: null, sequence: 0 },
+      email: email('fails'),
+      name: null,
+    };
+    const r = await sendWindow([inv]);
+    expect(r).toMatchObject({ sent: 0, failed: 1 });
+    expect((await service.from('thread_calendar_held').select('id').eq('engagement_id', engagement)).data).toEqual([]);
   });
 });
 

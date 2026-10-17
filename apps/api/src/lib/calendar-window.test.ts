@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planWindow, type WindowSession } from './calendar-window.js';
+import { feedFollows, planWindow, type WindowSession } from './calendar-window.js';
 
 const S = (id: string, thread = 't1'): WindowSession => ({
   id,
@@ -46,5 +46,26 @@ describe('the rolling window: who gets which session', () => {
   it('the session keeps its sequence, so a later move updates the same event', () => {
     const p = planWindow({ ...base, sessions: [S('s1')], places: [place('ann@x.org')] });
     expect(p.invites[0]!.session.sequence).toBe(2);
+  });
+});
+
+describe('who follows their feed', () => {
+  const now = new Date('2026-10-17T12:00:00Z');
+  it('a live feed read within 14 days; not a revoked one, an unread one, or one read 15 days ago', () => {
+    expect(feedFollows({ revoked_at: null, last_read_at: '2026-10-10T00:00:00Z' }, now)).toBe(true);
+    expect(feedFollows({ revoked_at: '2026-10-11T00:00:00Z', last_read_at: '2026-10-16T00:00:00Z' }, now)).toBe(false);
+    expect(feedFollows({ revoked_at: null, last_read_at: null }, now)).toBe(false);
+    expect(feedFollows({ revoked_at: null, last_read_at: '2026-10-02T11:00:00Z' }, now)).toBe(false);
+  });
+
+  it('the edges my.thread relies on (builder 5)', () => {
+    const DAY = 86_400_000;
+    const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
+    expect(feedFollows({ last_read_at: ago(3_600_000) }, now)).toBe(true); // an hour ago
+    expect(feedFollows({ last_read_at: ago(14 * DAY) }, now)).toBe(true); // exactly 14 days: included
+    expect(feedFollows({ last_read_at: ago(14 * DAY + 1000) }, now)).toBe(false); // a second more
+    expect(feedFollows({ last_read_at: null }, now)).toBe(false);
+    expect(feedFollows({ revoked_at: ago(1000), last_read_at: ago(1000) }, now)).toBe(false);
+    expect(feedFollows({ last_read_at: 'not a date' }, now)).toBe(false);
   });
 });

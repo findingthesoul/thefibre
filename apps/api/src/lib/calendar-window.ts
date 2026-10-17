@@ -38,14 +38,27 @@ import { platformEmailLocale } from './email/platform-i18n.js';
 import { workspaceSender } from './workspace-brand.js';
 import { enrolmentIsLive } from './portal.js';
 import { changeInvites, whenLine } from './calendar-invite.js';
-import { recordHeld } from './calendar-held.js';
 
 export const WINDOW_DAYS = 42;
 export const FEED_ACTIVE_DAYS = 14;
+/** THE rule for "a calendar follows this person's feed" — a live feed (not
+ *  revoked) collected within FEED_ACTIVE_DAYS. The window skips them (their
+ *  feed already shows every session), and my.thread says so (builder 5's
+ *  `follows`, calendar-feed.ts) — one definition for both. */
+export function feedFollows(row: { revoked_at?: string | null; last_read_at: string | null }, now: Date): boolean {
+  if (row.revoked_at) return false;
+  if (!row.last_read_at) return false;
+  return Date.parse(row.last_read_at) >= now.getTime() - FEED_ACTIVE_DAYS * 86_400_000;
+}
 export const WINDOW_SETTING = 'calendar_window';
 const DAY = 86_400_000;
 /** Just inside Resend's two-per-second ceiling (calendar-invite.ts). */
 const SEND_GAP_MS = 550;
+/** At most this many mails per scheduler pass: 200 × 550 ms ≈ 2 minutes, well
+ *  inside the 4-minute lease, so a pass always finishes before another can
+ *  start; the rest goes next tick (coordinator, 2026-10-17 — the launch burst
+ *  of existing members would otherwise outlast the lease). */
+export const WINDOW_CAP_PER_PASS = 200;
 
 const one = <T>(v: unknown): T | null => (!v ? null : Array.isArray(v) ? ((v[0] ?? null) as T | null) : (v as T));
 
@@ -137,7 +150,9 @@ export async function loadWindow(now: Date, scope: { threadIds?: string[] } = {}
       .from('thread_enrolment')
       .select('thread_id, created_at, person:person_id (email, first_name, last_name), enrolment:enrolment_id (status)')
       .in('thread_id', threadIds),
-    adminClient.from('thread_calendar_held').select('engagement_id, email').in('engagement_id', sessionIds),
+    // Only REQUEST rows mean "holds it": a CANCEL row (the session was taken
+    // out earlier) and the session published again is a gap to fill.
+    adminClient.from('thread_calendar_held').select('engagement_id, email').in('engagement_id', sessionIds).eq('method', 'REQUEST'),
     adminClient
       .from('thread_calendar_change')
       .select('engagement_id, sent_at')
@@ -162,11 +177,12 @@ export async function loadWindow(now: Date, scope: { threadIds?: string[] } = {}
   if (emails.length) {
     const { data: feeds } = await adminClient
       .from('person_calendar_feed')
-      .select('email')
+      .select('email, revoked_at, last_read_at')
       .is('revoked_at', null)
-      .gte('last_read_at', new Date(now.getTime() - FEED_ACTIVE_DAYS * DAY).toISOString())
       .in('email', emails);
-    for (const f of feeds ?? []) feedFollowers.add((f.email as string).toLowerCase());
+    for (const f of (feeds ?? []) as { email: string; revoked_at: string | null; last_read_at: string | null }[]) {
+      if (feedFollows(f, now)) feedFollowers.add(f.email.toLowerCase());
+    }
   }
   return {
     sessions,
@@ -198,17 +214,73 @@ export function countByThread(input: Awaited<ReturnType<typeof loadWindow>>, pla
   return [...out.values()].filter((c) => c.invitations || c.feed_skipped).sort((a, b) => b.invitations - a.invitations);
 }
 
-/** Send the planned invitations, one mail per session per person. */
-export async function sendWindow(invites: WindowInvite[]): Promise<{ sent: number; failed: number }> {
+/**
+ * CLAIM before send (the push pass's rule). The held row is inserted first;
+ * unique(engagement_id, email) lets exactly one runner win it, and only the
+ * winner sends. A second machine, or an overlapping tick, that planned the
+ * same gap gets 23505 and moves on — so an invitation goes at most once. A
+ * send that FAILS gives its claim back, so the next pass retries it.
+ */
+async function claim(inv: WindowInvite, at: string): Promise<'new' | 'flipped' | false> {
+  const { error } = await adminClient.from('thread_calendar_held').insert({
+    workspace_id: inv.session.workspace_id,
+    thread_id: inv.session.thread_id,
+    engagement_id: inv.session.id,
+    email: inv.email.toLowerCase(),
+    method: 'REQUEST',
+    sequence: inv.session.sequence,
+    source: 'window',
+    sent_at: at,
+  });
+  if (!error) return 'new';
+  if (error.code !== '23505') throw new Error(`window claim: ${error.message}`);
+  // The row exists. If its last word was CANCEL (the session was taken out,
+  // then published again), flip it back — conditionally, so of two runners
+  // only the one whose update matched wins. A REQUEST row means they hold it.
+  const { data, error: uErr } = await adminClient
+    .from('thread_calendar_held')
+    .update({ method: 'REQUEST', sequence: inv.session.sequence, source: 'window', sent_at: at })
+    .eq('engagement_id', inv.session.id)
+    .eq('email', inv.email.toLowerCase())
+    .eq('method', 'CANCEL')
+    .select('id');
+  if (uErr) throw new Error(`window claim: ${uErr.message}`);
+  return data && data.length ? 'flipped' : false;
+}
+
+/** Give a claim back after a failed send: a new row goes; a flipped one says
+ *  CANCEL again, so the record of the earlier cancellation is not lost. */
+async function release(inv: WindowInvite, at: string, kind: 'new' | 'flipped'): Promise<void> {
+  const q = adminClient.from('thread_calendar_held');
+  const match = (b: ReturnType<typeof q.delete> | ReturnType<typeof q.update>) =>
+    b.eq('engagement_id', inv.session.id).eq('email', inv.email.toLowerCase()).eq('source', 'window').eq('sent_at', at);
+  if (kind === 'new') await match(q.delete());
+  else await match(q.update({ method: 'CANCEL' }));
+}
+
+/** Send the planned invitations, one mail per session per person — at most
+ *  `cap` of them, each only after winning its claim. */
+export async function sendWindow(invites: WindowInvite[], cap = WINDOW_CAP_PER_PASS): Promise<{ sent: number; failed: number; lost: number; deferred: number }> {
   let sent = 0;
   let failed = 0;
+  let lost = 0;
+  const batch = invites.slice(0, cap);
+  const deferred = invites.length - batch.length;
+  invites = batch;
   const contexts = new Map<string, Awaited<ReturnType<typeof threadContext>>>();
   for (const inv of invites) {
     const s = inv.session;
+    const at = new Date().toISOString();
+    const won = await claim(inv, at);
+    if (!won) {
+      lost += 1; // someone else holds it, or is sending it right now
+      continue;
+    }
     if (!contexts.has(s.thread_id)) contexts.set(s.thread_id, await threadContext(s.thread_id));
     const ctx = contexts.get(s.thread_id);
     if (!ctx) {
       failed += 1;
+      await release(inv, at, won);
       continue;
     }
     const startsAt = new Date(s.starts_at);
@@ -254,15 +326,16 @@ export async function sendWindow(invites: WindowInvite[]): Promise<{ sent: numbe
         ...(ctx.organiserEmail ? { replyTo: ctx.organiserEmail } : {}),
         attachments: [{ filename: 'invite.ics', content: Buffer.from(ics, 'utf8').toString('base64'), contentType: icalContentType('REQUEST') }],
       });
-      await recordHeld({ workspace_id: s.workspace_id, thread_id: s.thread_id, engagement_id: s.id, email: inv.email, method: 'REQUEST', sequence: s.sequence, source: 'window' });
+      // The claim IS the record: the row says REQUEST at this sequence.
       sent += 1;
       await new Promise((r) => setTimeout(r, SEND_GAP_MS));
     } catch (e) {
       failed += 1;
+      await release(inv, at, won);
       console.error('[calendar-window] send failed', { thread: s.thread_id, session: s.id, e: (e as Error).message });
     }
   }
-  return { sent, failed };
+  return { sent, failed, lost, deferred };
 }
 
 async function threadContext(threadId: string) {
