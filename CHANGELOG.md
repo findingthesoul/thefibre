@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.272.2] — 2026-10-17
+
+### my.thread: what cancelling would give back, beside "Request cancellation" (my.thread 0.33.0)
+
+- Refund slice 3, the member's side. Ships after slice 3a (v1.272.0), from
+  which the organiser's approval refunds by the rule's amount, so the
+  sentence is a promise the approval keeps.
+- Beside **Request cancellation**, and in the open request form, the API's
+  refund quote is spelled out: "If you cancel now: €40.00 back (50% until
+  24 Nov 2026)." A fixed fee that's kept gets its own sentence. When nothing
+  would come back: "nothing back, by the organiser's refund rule."
+- Beside a **pending request**, the quote frozen at that request's date:
+  "Asked on 17 Oct 2026: €40.00 back by the rule."
+- With slice 2's `next_pct`: "(50% until 24 Nov 2026, then 25%)", or "Nothing
+  back after 24 Nov 2026." when 0 follows. Without it (an older API), only
+  "until" is said, which is true whatever follows.
+- Nothing is said when nothing was paid (`refund_quote` null) or no rule
+  applies (`reason: 'no_rule'`).
+- Money and dates are in the reader's language and the thread's zone. The
+  amounts are the API's; my.thread only says them (`lib/refund-quote.ts`).
+- "Until" names the last WHOLE day at the current rate. The API's
+  `changes_at` is the moment the rate drops, which for a thread starting at
+  midnight UTC is 01:00 Amsterdam time. "100% until 14 Mar" would be false at 15:00 on
+  14 Mar, so it says "until 13 Mar" (`lastWholeDayBefore`). That can only
+  under-promise, never over-promise. Found in the staging render.
+- Six languages.
+- Tested: unit `refund-quote` 13 (each reason, the fee, a pending request,
+  null and no_rule, the thread's zone across midnight, next_pct 25 / 0 /
+  absent, the last whole day across midnight, a month and DST; under TZ=UTC,
+  Amsterdam and Los Angeles); apps/my 99/99, typecheck clean. Rendered with
+  a local my.thread on this commit against the staging API (v1.272.0). The
+  rehearsal fixture had a seeded paid place (€40) on a thread with the rule
+  100% ≥30 days / 50% ≥7 days and a €5 fee. In en it read "If you cancel
+  now: €35.00 back (100% until 13 Mar 2027, then 50%). A fixed fee of €5.00
+  is kept.", the same in nl, beside the button and in the open form. No
+  request was sent, since that would notify the organiser. The seed was
+  removed and read back as 0.
+
 ## [1.272.1] — 2026-10-17
 
 ### Test only: the cancellation test no longer leaves a purchase behind each run

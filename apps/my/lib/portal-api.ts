@@ -6,6 +6,8 @@
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 
+import type { RefundQuote } from './refund-quote';
+
 export class PortalApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -88,6 +90,10 @@ export type ThreadItem = {
   enrolment_id?: string | null;
   cancellation_request?: CancellationRequest | null;
   can_request_cancellation?: boolean;
+  /** What cancelling would give back, by the organiser's rule (refund
+   *  slice 2, additive). Set only when a request can be made (counted now) or
+   *  one is pending (counted at its date); null = nothing was paid. */
+  refund_quote?: RefundQuote | null;
 };
 
 export type CancellationRequest = {

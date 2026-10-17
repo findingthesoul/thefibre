@@ -4040,6 +4040,77 @@ const CATALOG = {
     de: 'Dein Kalender folgt diesem Feed, deshalb bekommst du keine separaten Einladungen.', // MT
     fr: 'Ton agenda suit ce flux, tu ne recevras donc pas d’invitations séparées.', // MT
   },
+
+  // ── Refund quote ──────────────────────────────────────────────────────
+  // The refund quote beside "Request cancellation" (lib/refund-quote.ts). The
+  // amounts are the API's; these only say them.
+  refund_now_until: {
+    en: 'If you cancel now: {amount} back ({pct}% until {date}).',
+    nl: 'Als je nu annuleert: {amount} terug ({pct}% tot en met {date}).',
+    es: 'Si cancelas ahora: {amount} de reembolso ({pct}% hasta el {date}).', // MT
+    pt: 'Se você cancelar agora: {amount} de volta ({pct}% até {date}).', // MT
+    de: 'Wenn du jetzt stornierst: {amount} zurück ({pct}% bis {date}).', // MT
+    fr: 'Si tu annules maintenant : {amount} remboursés ({pct}% jusqu’au {date}).', // MT
+  },
+  refund_now: {
+    en: 'If you cancel now: {amount} back ({pct}%).',
+    nl: 'Als je nu annuleert: {amount} terug ({pct}%).',
+    es: 'Si cancelas ahora: {amount} de reembolso ({pct}%).', // MT
+    pt: 'Se você cancelar agora: {amount} de volta ({pct}%).', // MT
+    de: 'Wenn du jetzt stornierst: {amount} zurück ({pct}%).', // MT
+    fr: 'Si tu annules maintenant : {amount} remboursés ({pct}%).', // MT
+  },
+  refund_now_nothing: {
+    en: 'If you cancel now: nothing back, by the organiser’s refund rule.',
+    nl: 'Als je nu annuleert: niets terug, volgens de terugbetaalregel van de organisator.',
+    es: 'Si cancelas ahora: sin reembolso, según la norma de reembolso de quien organiza.', // MT
+    pt: 'Se você cancelar agora: nada de volta, pela regra de reembolso de quem organiza.', // MT
+    de: 'Wenn du jetzt stornierst: nichts zurück, nach der Erstattungsregel der Veranstalter:in.', // MT
+    fr: 'Si tu annules maintenant : aucun remboursement, selon la règle de l’organisateur.', // MT
+  },
+  refund_fee_kept: {
+    en: 'A fixed fee of {fee} is kept.',
+    nl: 'Er wordt een vast bedrag van {fee} ingehouden.',
+    es: 'Se retiene una tarifa fija de {fee}.', // MT
+    pt: 'Uma taxa fixa de {fee} é retida.', // MT
+    de: 'Eine feste Gebühr von {fee} wird einbehalten.', // MT
+    fr: 'Des frais fixes de {fee} sont retenus.', // MT
+  },
+  refund_asked: {
+    en: 'Asked on {date}: {amount} back by the rule.',
+    nl: 'Aangevraagd op {date}: {amount} terug volgens de regel.',
+    es: 'Solicitado el {date}: {amount} de reembolso según la norma.', // MT
+    pt: 'Pedido em {date}: {amount} de volta pela regra.', // MT
+    de: 'Angefragt am {date}: {amount} zurück nach der Regel.', // MT
+    fr: 'Demandé le {date} : {amount} remboursés selon la règle.', // MT
+  },
+  refund_asked_nothing: {
+    en: 'Asked on {date}: nothing back by the rule.',
+    nl: 'Aangevraagd op {date}: niets terug volgens de regel.',
+    es: 'Solicitado el {date}: sin reembolso según la norma.', // MT
+    pt: 'Pedido em {date}: nada de volta pela regra.', // MT
+    de: 'Angefragt am {date}: nichts zurück nach der Regel.', // MT
+    fr: 'Demandé le {date} : aucun remboursement selon la règle.', // MT
+  },
+
+  // ── Refund quote: what follows ────────────────────────────────────────
+  // With next_pct (refund slice 2, additive): what follows the current step.
+  refund_now_then: {
+    en: 'If you cancel now: {amount} back ({pct}% until {date}, then {next}%).',
+    nl: 'Als je nu annuleert: {amount} terug ({pct}% tot en met {date}, daarna {next}%).',
+    es: 'Si cancelas ahora: {amount} de reembolso ({pct}% hasta el {date}, después {next}%).', // MT
+    pt: 'Se você cancelar agora: {amount} de volta ({pct}% até {date}, depois {next}%).', // MT
+    de: 'Wenn du jetzt stornierst: {amount} zurück ({pct}% bis {date}, danach {next}%).', // MT
+    fr: 'Si tu annules maintenant : {amount} remboursés ({pct}% jusqu’au {date}, puis {next}%).', // MT
+  },
+  refund_nothing_after: {
+    en: 'Nothing back after {date}.',
+    nl: 'Na {date} niets meer terug.',
+    es: 'Sin reembolso después del {date}.', // MT
+    pt: 'Nada de volta depois de {date}.', // MT
+    de: 'Nach dem {date} nichts mehr zurück.', // MT
+    fr: 'Aucun remboursement après le {date}.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

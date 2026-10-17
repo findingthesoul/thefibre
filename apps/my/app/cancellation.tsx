@@ -21,6 +21,7 @@ import { requestCancellation, withdrawCancellation, type ThreadItem } from '@/li
 import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
+import { refundQuoteLines } from '@/lib/refund-quote';
 import { friendlyError } from '@/lib/errors';
 
 export function CancellationSection({ thread }: { thread: ThreadItem }) {
@@ -33,6 +34,14 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
   const req = thread.cancellation_request ?? null;
   const id = thread.enrolment_id ?? null;
   if (!id || (!req && !thread.can_request_cancellation)) return null;
+
+  // What cancelling would give back (refund slice 3): money and dates in the
+  // thread's own zone. Said beside the button and in the open form, and —
+  // frozen at the request's date — beside a pending request.
+  const zone = thread.timezone || DEFAULT_TZ;
+  const nowQuote = thread.can_request_cancellation ? refundQuoteLines(thread.refund_quote, { locale, tz: zone }) : [];
+  const pendingQuote =
+    req?.status === 'pending' ? refundQuoteLines(thread.refund_quote, { locale, tz: zone, pending: { created_at: req.created_at } }) : [];
 
   async function send() {
     if (!id) return;
@@ -69,8 +78,9 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
       {req?.status === 'pending' && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink">
-            {t(locale, 'cancel_requested', { date: fmtDate(req.created_at, locale, DEFAULT_TZ) ?? '' })}
+            {t(locale, 'cancel_requested', { date: fmtDate(req.created_at, locale, zone) ?? '' })}
           </p>
+          {pendingQuote.length > 0 && <p className="w-full text-sm text-ink-subtle">{pendingQuote.join(' ')}</p>}
           <Button type="button" variant="secondary" onClick={withdraw} disabled={busy}>
             {t(locale, 'withdraw_request')}
           </Button>
@@ -88,6 +98,7 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
           <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
             {t(locale, 'request_cancellation')}
           </Button>
+          {nowQuote.length > 0 && <p className="mt-2 text-sm text-ink-subtle">{nowQuote.join(' ')}</p>}
         </div>
       )}
       {error && !open && <FormError message={error} />}
@@ -100,6 +111,7 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
           <p className="text-sm text-ink">
             {t(locale, 'cancel_explain')}
           </p>
+          {nowQuote.length > 0 && <p className="mt-2 text-sm font-medium text-ink">{nowQuote.join(' ')}</p>}
           <div className="mt-3">
             <TextAreaField
               label={t(locale, 'reason_optional')}
