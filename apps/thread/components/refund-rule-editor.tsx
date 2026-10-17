@@ -186,7 +186,6 @@ export function RefundRuleEditor({
         </>
       )}
 
-      <p className="text-xs text-ink-subtle">{t(locale, 'refund_rule_quote_only')}</p>
       <div className="flex items-center gap-3">
         <Button type="button" variant="save" disabled={pending} onClick={save}>
           {pending ? t(locale, 'saving') : t(locale, 'save')}

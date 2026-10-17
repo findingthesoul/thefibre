@@ -186,7 +186,7 @@ export type CancellationRequestItem = {
   person_name: string | null;
   person_email: string | null;
   /** The card payment an approval could give back; null when there is none. */
-  refundable: { amount_cents: number; currency: string } | null;
+  refundable: { amount_cents: number; currency: string; remaining_cents?: number } | null;
   /** What the refund RULE says, counted at the request's date (refund
    *  rules, slice 2). Information only: the approve action still refunds in
    *  full or not at all. Null when nothing was paid. */
@@ -219,14 +219,19 @@ export async function listCancellationRequests(
 
 export async function approveCancellation(
   id: string,
-  refund: boolean,
-): Promise<{ ok: true; refunded_cents: number | null; refund_error: string | null } | { ok: false; error: string }> {
+  /** What to give back (refund rules, slice 3a): an amount in cents, and a
+   *  reason when it is not the rule's. Null = no refund. */
+  refund: { amount_cents: number; reason: string | null } | null,
+): Promise<
+  | { ok: true; refunded_cents: number | null; refund_error: string | null; credit_note: { id: string; number: string } | null }
+  | { ok: false; error: string }
+> {
   try {
-    const r = await apiFetch<{ refunded_cents: number | null; refund_error: string | null }>(
+    const r = await apiFetch<{ refunded_cents: number | null; refund_error: string | null; credit_note?: { id: string; number: string } | null }>(
       `/api/v1/thread/cancellation-requests/${encodeURIComponent(id)}/approve`,
-      { method: 'POST', body: JSON.stringify({ refund }) },
+      { method: 'POST', body: JSON.stringify(refund ? { amount_cents: refund.amount_cents, reason: refund.reason } : {}) },
     );
-    return { ok: true, refunded_cents: r.refunded_cents ?? null, refund_error: r.refund_error ?? null };
+    return { ok: true, refunded_cents: r.refunded_cents ?? null, refund_error: r.refund_error ?? null, credit_note: r.credit_note ?? null };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };
   }

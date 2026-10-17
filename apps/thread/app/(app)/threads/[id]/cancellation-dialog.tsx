@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SwitchField } from '@/components/ui/switch';
-import { TextAreaField } from '@/components/ui/field';
+import { TextAreaField, TextField } from '@/components/ui/field';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { money } from '@thefibre/shared/money';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
@@ -36,6 +36,17 @@ export function CancellationDialog({
   onDecided: () => void;
 }) {
   const [refund, setRefund] = useState(!!request.refundable);
+  // What goes back (refund rules, slice 3a): the rule's answer by default,
+  // capped at what is left; editable, with a reason when it differs.
+  const quote = request.refund_quote && request.refund_quote.reason !== 'no_rule' ? request.refund_quote : null;
+  const remaining = request.refundable?.remaining_cents ?? request.refundable?.amount_cents ?? 0;
+  const ruleCents = quote ? Math.min(quote.refund_cents, remaining) : remaining;
+  const [amountText, setAmountText] = useState((ruleCents / 100).toFixed(2));
+  const [why, setWhy] = useState('');
+  const amountCents = Math.round(Number(amountText.replace(',', '.')) * 100);
+  const amountOk = Number.isFinite(amountCents) && amountCents >= 0 && amountCents <= remaining;
+  const differs = !!quote && amountCents !== ruleCents;
+  const [noteNumber, setNoteNumber] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,13 +57,26 @@ export function CancellationDialog({
     : null;
 
   async function approve() {
-    setBusy(true);
     setError(null);
-    const r = await approveCancellation(request.id, !!request.refundable && refund);
+    if (request.refundable && refund) {
+      if (!amountOk) return setError(t(locale, 'cancel_req_amount_bad', { max: money(remaining, request.refundable.currency, INTL_LOCALES[locale]) }));
+      if (differs && !why.trim()) return setError(t(locale, 'cancel_req_reason_needed'));
+    }
+    setBusy(true);
+    const r = await approveCancellation(
+      request.id,
+      request.refundable && refund && amountCents > 0 ? { amount_cents: amountCents, reason: differs ? why.trim() : null } : null,
+    );
     setBusy(false);
     if (!r.ok) return setError(r.error);
     if (r.refund_error) {
       setRefundFailed(r.refund_error);
+      onDecided();
+      return;
+    }
+    if (r.credit_note) {
+      // Until the credit note is mailed (slice 3b), the organiser sees its number.
+      setNoteNumber(r.credit_note.number);
       onDecided();
       return;
     }
@@ -77,7 +101,7 @@ export function CancellationDialog({
       title={t(locale, 'cancel_req_title')}
       description={personName}
       footer={
-        refundFailed ? (
+        refundFailed || noteNumber ? (
           <Button type="button" onClick={onClose}>
             {t(locale, 'close')}
           </Button>
@@ -98,6 +122,8 @@ export function CancellationDialog({
     >
       {refundFailed ? (
         <p className={NOTICE.warning}>{t(locale, 'cancel_req_refund_failed', { error: refundFailed })}</p>
+      ) : noteNumber ? (
+        <p className={NOTICE.success}>{t(locale, 'cancel_req_refunded_note', { number: noteNumber })}</p>
       ) : (
         <>
           <p className="text-sm text-ink-subtle">{t(locale, 'cancel_req_reason')}</p>
@@ -119,17 +145,36 @@ export function CancellationDialog({
                 {request.refund_quote.fee_cents > 0 &&
                   ` ${t(locale, 'cancel_req_rule_fee', { fee: money(request.refund_quote.fee_cents, request.refund_quote.currency, INTL_LOCALES[locale]) })}`}
               </p>
-              {amount && <p className="mt-1">{t(locale, 'cancel_req_rule_full_for_now')}</p>}
+
             </div>
           )}
 
           <div className="mt-5">
             {amount ? (
-              <SwitchField
-                label={t(locale, 'cancel_req_refund', { amount })}
-                checked={refund}
-                onChange={setRefund}
-              />
+              <div className="space-y-3">
+                <SwitchField label={t(locale, 'cancel_req_refund_to_card')} checked={refund} onChange={setRefund} />
+                {refund && (
+                  <>
+                    <div className="w-48">
+                      <TextField
+                        label={t(locale, 'cancel_req_amount')}
+                        hint={t(locale, 'cancel_req_amount_hint', { max: money(remaining, request.refundable!.currency, INTL_LOCALES[locale]) })}
+                        inputMode="decimal"
+                        value={amountText}
+                        onChange={(e) => setAmountText(e.target.value)}
+                      />
+                    </div>
+                    {differs && (
+                      <TextAreaField
+                        label={t(locale, 'cancel_req_why_differs')}
+                        value={why}
+                        maxLength={500}
+                        onChange={(e) => setWhy(e.target.value)}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             ) : (
               <p className="text-sm text-ink-subtle">{t(locale, 'cancel_req_no_card')}</p>
             )}

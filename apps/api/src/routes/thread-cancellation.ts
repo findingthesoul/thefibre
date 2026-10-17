@@ -13,7 +13,9 @@
 //   · approving DROPS the place through performDeclineEnrolment, the core of
 //     POST /enrolments/:id/decline (dropped, the seat freed, a pending
 //     Checkout expired);
-//   · its refund is reimbursePurchase (lib/reimburse.ts), the core of
+//   · its refund is refundPart (lib/partial-refund.ts: the amount, its credit
+//     note, the fee back in proportion) since refund rules slice 3a; before
+//     that it was reimbursePurchase (lib/reimburse.ts), the core of
 //     POST /purchases/:id/refund that the Invoices pages call;
 //   · who may decide is loadEnrolmentForAction's answer (admin, the thread's
 //     organiser, or a co-organising host) — the same as Decline.
@@ -37,8 +39,9 @@ import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { personsForEmail } from '../lib/portal-agenda.js';
 import { loadThreadDates } from '../lib/thread-dates.js';
 import { threadHosts } from '../lib/main-facilitator.js';
-import { reimbursePurchase, type ReimbursablePurchase } from '../lib/reimburse.js';
+import { type ReimbursablePurchase } from '../lib/reimburse.js';
 import { quoteForPlace } from '../lib/refund-quote.js';
+import { refundPart, remainingFor } from '../lib/partial-refund.js';
 import { sendEmail } from '../lib/email/client.js';
 import { platformEmailLocale } from '../lib/email/platform-i18n.js';
 import {
@@ -250,6 +253,8 @@ type StaffRequest = {
   thread_id: string;
   enrolment_id: string;
   status: string;
+  /** The day they ASKED — the date the refund rule counts at (C). */
+  created_at: string;
 };
 
 /** The request, if the caller may decide on its place; the error otherwise. */
@@ -260,7 +265,7 @@ async function loadForDecision(
   const ctx = c.get('ctx');
   const { data: req } = await adminClient
     .from('thread_cancellation_request')
-    .select('id, workspace_id, thread_id, enrolment_id, status')
+    .select('id, workspace_id, thread_id, enrolment_id, status, created_at')
     .eq('id', requestId)
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
@@ -304,15 +309,28 @@ cancellationStaffRoutes.get('/threads/:id/cancellation-requests', async (c) => {
   const { data: purchases } = enrolmentIds.length
     ? await adminClient
         .from('purchase')
-        .select('item_ref, method, status, amount_cents, currency')
+        .select('id, item_ref, method, status, amount_cents, currency')
         .eq('workspace_id', ctx.workspaceId)
         .eq('app_id', app!.id)
         .in('item_ref', enrolmentIds)
     : { data: [] };
+  const cardRows = (purchases ?? []).filter((p) => p.method === 'stripe' && p.status === 'paid');
+  // What is LEFT to refund (refund rules, slice 3a): paid minus its credit notes.
+  const { data: notes } = cardRows.length
+    ? await adminClient.from('purchase_credit_note').select('purchase_id, amount_cents').in('purchase_id', cardRows.map((p) => p.id as string))
+    : { data: [] };
+  const credited = new Map<string, number>();
+  for (const n of notes ?? []) credited.set(n.purchase_id as string, (credited.get(n.purchase_id as string) ?? 0) + (n.amount_cents as number));
   const paidByCard = new Map(
-    (purchases ?? [])
-      .filter((p) => p.method === 'stripe' && p.status === 'paid')
-      .map((p) => [p.item_ref as string, { amount_cents: p.amount_cents as number, currency: (p.currency as string) ?? 'EUR' }]),
+    cardRows.map((p) => [
+      p.item_ref as string,
+      {
+        amount_cents: p.amount_cents as number,
+        currency: (p.currency as string) ?? 'EUR',
+        // Additive: paid minus what credit notes already gave back.
+        remaining_cents: (p.amount_cents as number) - (credited.get(p.id as string) ?? 0),
+      },
+    ]),
   );
   // What the refund RULE says for each request, counted at the request's own
   // date (C). Information only until partial refunds ship: the approve
@@ -348,7 +366,15 @@ cancellationStaffRoutes.get('/threads/:id/cancellation-requests', async (c) => {
   });
 });
 
-const ApproveBody = z.object({ refund: z.boolean().optional() });
+// `amount_cents` (refund rules, slice 3a): what goes back, defaulting in the
+// dialog to the rule's quote and capped at what is left. A different amount
+// needs a `reason` (it goes on the credit note). `refund: true` with no amount
+// keeps its old meaning: everything that is left.
+const ApproveBody = z.object({
+  refund: z.boolean().optional(),
+  amount_cents: z.number().int().min(0).optional(),
+  reason: z.string().trim().max(500).nullable().optional(),
+});
 
 cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => {
   const ctx = c.get('ctx');
@@ -357,6 +383,28 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => 
   const got = await loadForDecision(c as never, c.req.param('id'));
   if ('error' in got) return c.json({ error: got.error }, got.code);
   const { req, loaded } = got;
+
+  // What to refund, decided BEFORE the claim: a refused amount must leave the
+  // request pending, not half-decided.
+  const wantsRefund = !!body.data.refund || (body.data.amount_cents ?? 0) > 0;
+  let refundPlan: { purchaseId: string; amount: number; rulePct: number | null; ruleFee: number; reason: string | null } | null = null;
+  if (wantsRefund) {
+    const purchase = await cardPurchaseFor(req.workspace_id, req.enrolment_id);
+    if (purchase && purchase.method === 'stripe' && purchase.status === 'paid') {
+      const remaining = await remainingFor({ id: purchase.id, amount_cents: (purchase as { amount_cents?: number | null }).amount_cents ?? 0 });
+      const quote = await quoteForPlace(req.enrolment_id, req.thread_id, new Date(req.created_at));
+      const amount = body.data.amount_cents ?? remaining;
+      if (amount > remaining) return c.json({ error: `at most ${(remaining / 100).toFixed(2)} is left to refund`, code: 'over' }, 400);
+      const byRule = !!quote && quote.reason !== 'no_rule' && amount === Math.min(quote.refund_cents, remaining);
+      const reason = body.data.reason?.trim() || null;
+      if (quote && quote.reason !== 'no_rule' && !byRule && !reason) {
+        return c.json({ error: 'say why the refund differs from the rule', code: 'reason_required' }, 400);
+      }
+      if (amount > 0) {
+        refundPlan = { purchaseId: purchase.id, amount, rulePct: byRule ? quote!.pct : null, ruleFee: byRule ? quote!.fee_cents : 0, reason };
+      }
+    }
+  }
 
   // THE CLAIM. Only the caller that turns pending into approved goes on.
   const { data: claimed, error: claimErr } = await adminClient
@@ -379,14 +427,28 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => 
 
   let refundedCents: number | null = null;
   let refundError: string | null = null;
-  if (body.data.refund) {
-    const purchase = await cardPurchaseFor(req.workspace_id, req.enrolment_id);
-    if (!purchase || purchase.method !== 'stripe' || purchase.status !== 'paid') {
+  let creditNote: { id: string; number: string } | null = null;
+  if (wantsRefund) {
+    if (!refundPlan) {
       refundError = 'there is no card payment to refund';
     } else {
-      const done = await reimbursePurchase(purchase, 'the-thread');
-      if ('error' in done) refundError = done.error;
-      else refundedCents = done.already ? null : done.refunded_cents;
+      // The money and its credit note (lib/partial-refund.ts). Keyed on this
+      // request, so a double submit cannot refund twice.
+      const done = await refundPart({
+        purchaseId: refundPlan.purchaseId,
+        workspaceId: req.workspace_id,
+        amountCents: refundPlan.amount,
+        reason: refundPlan.reason,
+        rulePct: refundPlan.rulePct,
+        ruleFeeKeptCents: refundPlan.ruleFee,
+        cancellationRequestId: req.id,
+        issuedBy: actorUserId(ctx as never) || null,
+      });
+      if (!done.ok) refundError = done.error;
+      else {
+        refundedCents = done.refunded_cents;
+        creditNote = done.note;
+      }
     }
     await adminClient
       .from('thread_cancellation_request')
@@ -412,7 +474,7 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => 
       console.error('[cancellation] approval email failed', { message: (e as Error).message });
     }
   }
-  return c.json({ ok: true, refunded_cents: refundedCents, refund_error: refundError });
+  return c.json({ ok: true, refunded_cents: refundedCents, refund_error: refundError, credit_note: creditNote });
 });
 
 const RejectBody = z.object({ note: z.string().trim().max(2000).nullable().optional() });

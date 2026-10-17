@@ -18,6 +18,7 @@ import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { reimbursePurchase, type ReimbursablePurchase } from '../lib/reimburse.js';
+import { refundPart, remainingFor } from '../lib/partial-refund.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
@@ -601,6 +602,29 @@ purchasesRoutes.post('/:id/refund', async (c) => {
   if ('error' in r) return c.json({ error: r.error }, r.code as 404);
   // The money and the rows: lib/reimburse.ts, shared with approving a
   // cancellation request so there is one refund path, not two.
+  // A Thread CARD payment refunds through refundPart (lib/partial-refund.ts):
+  // the whole remaining amount, with its credit note (F: full refunds too).
+  const p = r.purchase as unknown as ReimbursablePurchase & { amount_cents?: number | null };
+  if (r.appSlug === 'the-thread' && p.method === 'stripe' && p.status === 'paid') {
+    const remaining = await remainingFor({ id: p.id, amount_cents: p.amount_cents ?? 0 });
+    const done = await refundPart({
+      purchaseId: p.id,
+      workspaceId: ctx.workspaceId,
+      amountCents: remaining,
+      reason: 'Refund',
+      rulePct: null,
+      ruleFeeKeptCents: 0,
+      cancellationRequestId: null,
+      issuedBy: ctx.userId || null,
+    });
+    if (!done.ok) {
+      return c.json(
+        { error: done.error, code: done.code, ...(done.code === 'unrecorded' ? { refund_id: done.refund_id } : {}) },
+        done.code === 'unrecorded' || done.code === 'stripe' ? 502 : done.code === 'not_configured' ? 503 : 409,
+      );
+    }
+    return c.json({ ok: true, credit_note: done.note });
+  }
   const done = await reimbursePurchase(r.purchase as unknown as ReimbursablePurchase, r.appSlug);
   if ('error' in done) return c.json({ error: done.error }, done.code);
   return c.json(done.already ? { ok: true, already: true } : { ok: true });

@@ -4006,14 +4006,6 @@ const CATALOG = {
     de: 'Optional; wird von jeder Erstattung einbehalten.', // MT
     fr: 'Facultatif ; retenu sur chaque remboursement.', // MT
   },
-  refund_rule_quote_only: {
-    en: 'Refunds follow this rule from the next update; until then you refund in full or not at all.',
-    nl: 'Terugbetalingen volgen deze regel vanaf de volgende update; tot dan betaal je volledig of niet terug.',
-    es: 'Los reembolsos seguirán esta regla a partir de la próxima actualización; hasta entonces reembolsas por completo o no reembolsas.', // MT
-    pt: 'Os reembolsos seguem esta regra a partir da próxima atualização; até lá reembolsa na totalidade ou não reembolsa.', // MT
-    de: 'Erstattungen folgen dieser Regel ab dem nächsten Update; bis dahin erstattest du vollständig oder gar nicht.', // MT
-    fr: 'Les remboursements suivront cette règle dès la prochaine mise à jour ; d’ici là, vous remboursez en totalité ou pas du tout.', // MT
-  },
   refund_rule_bad_days: {
     en: 'Days must be a whole number from 0.',
     nl: 'Dagen moeten een heel getal vanaf 0 zijn.',
@@ -4072,13 +4064,61 @@ const CATALOG = {
     de: 'Eine feste Gebühr von {fee} wird einbehalten.', // MT
     fr: 'Des frais fixes de {fee} sont retenus.', // MT
   },
-  cancel_req_rule_full_for_now: {
-    en: 'Refunding by the rule arrives in an update; for now the refund below is in full.',
-    nl: 'Terugbetalen volgens de regel komt in een update; voorlopig is de terugbetaling hieronder volledig.',
-    es: 'El reembolso según la regla llegará en una actualización; por ahora, el reembolso de abajo es completo.', // MT
-    pt: 'O reembolso pela regra chega numa atualização; por agora, o reembolso abaixo é total.', // MT
-    de: 'Erstattung nach Regel kommt mit einem Update; vorerst ist die Erstattung unten vollständig.', // MT
-    fr: 'Le remboursement selon la règle arrive dans une mise à jour ; pour l’instant, le remboursement ci-dessous est total.', // MT
+  cancel_req_refund_to_card: {
+    en: 'Refund to their card',
+    nl: 'Terugbetalen op hun kaart',
+    es: 'Reembolsar a su tarjeta', // MT
+    pt: 'Reembolsar no cartão', // MT
+    de: 'Auf ihre Karte erstatten', // MT
+    fr: 'Rembourser sur leur carte', // MT
+  },
+  cancel_req_amount: {
+    en: 'Amount to refund',
+    nl: 'Bedrag om terug te betalen',
+    es: 'Importe a reembolsar', // MT
+    pt: 'Valor a reembolsar', // MT
+    de: 'Zu erstattender Betrag', // MT
+    fr: 'Montant à rembourser', // MT
+  },
+  cancel_req_amount_hint: {
+    en: 'At most {max}.',
+    nl: 'Hoogstens {max}.',
+    es: 'Como máximo {max}.', // MT
+    pt: 'No máximo {max}.', // MT
+    de: 'Höchstens {max}.', // MT
+    fr: 'Au plus {max}.', // MT
+  },
+  cancel_req_amount_bad: {
+    en: 'The amount is between 0 and {max}.',
+    nl: 'Het bedrag ligt tussen 0 en {max}.',
+    es: 'El importe está entre 0 y {max}.', // MT
+    pt: 'O valor está entre 0 e {max}.', // MT
+    de: 'Der Betrag liegt zwischen 0 und {max}.', // MT
+    fr: 'Le montant est entre 0 et {max}.', // MT
+  },
+  cancel_req_why_differs: {
+    en: 'Why this differs from the refund rule',
+    nl: 'Waarom dit afwijkt van de terugbetaalregel',
+    es: 'Por qué difiere de la regla de reembolso', // MT
+    pt: 'Porque difere da regra de reembolso', // MT
+    de: 'Warum dies von der Erstattungsregel abweicht', // MT
+    fr: 'Pourquoi cela diffère de la règle de remboursement', // MT
+  },
+  cancel_req_reason_needed: {
+    en: 'Say why the refund differs from the rule; it goes on the credit note.',
+    nl: 'Zeg waarom de terugbetaling afwijkt van de regel; het komt op de creditnota.',
+    es: 'Indica por qué el reembolso difiere de la regla; figurará en la nota de crédito.', // MT
+    pt: 'Diga porque o reembolso difere da regra; fica na nota de crédito.', // MT
+    de: 'Sag, warum die Erstattung von der Regel abweicht; es steht auf der Gutschrift.', // MT
+    fr: 'Indiquez pourquoi le remboursement diffère de la règle ; cela figure sur l’avoir.', // MT
+  },
+  cancel_req_refunded_note: {
+    en: 'Refunded. Credit note {number}.',
+    nl: 'Terugbetaald. Creditnota {number}.',
+    es: 'Reembolsado. Nota de crédito {number}.', // MT
+    pt: 'Reembolsado. Nota de crédito {number}.', // MT
+    de: 'Erstattet. Gutschrift {number}.', // MT
+    fr: 'Remboursé. Avoir {number}.', // MT
   },
   cancel_req_no_card: {
     en: 'No card payment to refund here. If they paid by invoice, refund that outside The Thread.',

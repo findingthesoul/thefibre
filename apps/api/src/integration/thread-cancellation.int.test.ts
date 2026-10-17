@@ -144,7 +144,12 @@ afterAll(async () => {
     thread: ((await service.from('thread_thread').select('id').eq('id', threadId)).data ?? []).length,
     purchases: ((await service.from('purchase').select('id').in('id', [places.alice?.purchase, places.bob?.purchase].filter(Boolean) as string[])).data ?? []).length,
   };
-  expect(left).toEqual({ requests: 0, thread: 0, purchases: 0 });
+  // Alice's card purchase STAYS (refund rules slice 3a): its refund left a
+  // credit note, an issued money record that cannot be deleted, so neither
+  // can the purchase under it. This workspace is permanent (activity pins
+  // it), so one purchase + its note per run remain here, by design.
+  expect(left).toEqual({ requests: 0, thread: 0, purchases: 1 });
+  expect((await service.from('purchase_credit_note').select('id').eq('purchase_id', places.alice!.purchase!)).data).toHaveLength(1);
 }, 180_000);
 
 describe('the participant asks', () => {
@@ -262,7 +267,7 @@ describe('the organiser decides', () => {
     sent.length = 0;
     const r = await call(`/thread/cancellation-requests/${pending.id}/approve`, organiser, { method: 'POST', body: { refund: false } });
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ ok: true, refunded_cents: null, refund_error: null });
+    expect(await r.json()).toEqual({ ok: true, credit_note: null, refunded_cents: null, refund_error: null });
     expect(await enrolmentStatus(places.bob.enr)).toBe('dropped');
     expect((await service.from('purchase').select('status').eq('id', places.bob.purchase!).single()).data!.status).toBe('paid');
     expect(sent).toHaveLength(1);

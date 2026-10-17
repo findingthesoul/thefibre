@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.272.0] — 2026-10-17
+
+### Refund rules, slice 3a: refunds follow the rule — part of a card payment back, with its credit note (API + Thread 4.23.0)
+
+- Sjoerd's answers A–G. Approving a cancellation now refunds the AMOUNT the
+  organiser confirms.
+  - It defaults to the rule's answer (counted at the request's date, C) and
+    is capped at what is left; editable.
+  - A different amount needs a reason, which goes on the credit note.
+  - The two "arrives in an update" lines are gone from the dialog and the
+    rule editor.
+- **`lib/partial-refund.ts`** (`refundPart`), on the purchase's OWN
+  connected account:
+  - `remaining` (paid − its credit notes) is checked before Stripe is
+    called.
+  - The refund is made for exactly the amount with
+    `refund_application_fee`; idempotency keyed on the request, so a double
+    click cannot refund twice.
+  - The platform fee returned (E) is READ BACK from Stripe, on the platform's
+    side of a direct charge; a difference of more than a cent from the
+    proportion is logged.
+- **The credit note (F).** With a Stripe invoice (every Checkout since
+  invoice_creation): Stripe's own credit note, crediting the invoice's line,
+  linked to the refund just made, numbered in THAT invoice's series. Our row
+  takes net + VAT from it. Without one: our own series per seller.
+- **The `purchase_credit_note` row.** If the database refuses it after the
+  money moved, a `[REFUND-UNRECORDED]` error is logged with the refund id, and
+  the organiser reads "The refund was made but couldn't be recorded. Contact
+  support with <refund id>." A concurrent double submit is answered from the
+  row the first one wrote, or "already being made".
+- **The purchase turns 'refunded'** (place and payout with it) only when the
+  notes reach what was paid. Then, and only then, the discount-code use is
+  given back (D).
+- The invoices page's Reimburse goes the same way for Thread card payments: a
+  full refund of what is left, with its credit note.
+- **Until slice 3b** (the credit note as PDF + email, with the invoice's seller
+  rules): the organiser sees the note's number in the dialog ("Refunded.
+  Credit note …"). The member gets Stripe's own refund receipt only if the
+  organiser's Stripe account sends receipts.
+- **Tests:**
+  - `refund-part.int.test.ts` against Stripe TEST on the fixtures' connected
+    account:
+    - 50% back → exactly that refund, the fee back in proportion read from
+      Stripe (100 of 200), a note in our series; the rest → purchase
+      refunded;
+    - one cent over → refused before Stripe;
+    - a concurrent double submit → one refund, one note;
+    - a real Stripe invoice with 21% VAT on top → Stripe's credit note in the
+      invoice's series for exactly the refund, our net + VAT from it;
+    - the database forced to refuse after a real refund → the tag, the
+      refund id and the organiser's sentence.
+  - `thread-cancellation.int.test.ts` still passes. Note: its permanent
+    workspace now keeps one purchase + its credit note per run, because an
+    issued note cannot be deleted.
+
 ## [1.271.0] — 2026-10-17
 
 ### Calendar invitations, slice 3: when a whole thread ends, its sessions leave people's calendars (API + Thread 4.22.0)
