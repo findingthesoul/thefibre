@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.13] — 2026-10-17
+
+### Adding to a membership without a card: the window asks for one first, and a failed payment leaves nothing behind (API + my.thread 0.35.2)
+
+- A member who paid the year by invoice has no card on file. The add
+  window still said "with the card on your membership" and offered Pay;
+  Pay then failed with a generic error and left an open, unpaid invoice
+  in Stripe.
+- **The preview says when there's no card** (`needs_card`, additive): the
+  subscription has no default payment method and the customer has none
+  either, the same rule as the card line in Purchases. The window then
+  says "Add a card to your membership first: nothing can be charged without
+  one", shows the same card line with its "change" link (the in-Fibre card
+  form), offers "Card added? Check again", and keeps Pay disabled.
+- **The server refuses before anything is created at Stripe:** an add that
+  would charge now, with no card, answers 409 `needs_card`. "Charge now"
+  means a one-off, a prepaid full price, or pro rata on a subscription that
+  isn't trialing.
+- **A card that declines leaves nothing behind:** the invoice the add made
+  is voided, nothing is added, and the answer is 402 `card_declined`. my.thread
+  says "The payment didn't go through with the card on your membership…
+  nothing was added" in the reader's language, not "something went wrong on
+  our side".
+- **`apps/api/scripts/inspect-member-addon.ts`** (read-only) joins the repo.
+  It prints a member's rows and subscription for support questions, now
+  including the collection method and whether the subscription and the
+  customer have a default payment method (yes/no only, never card details).
+- Tests: `addon-no-card.int.test.ts` on STAGING with Stripe TEST
+  subscriptions in the prepaid shape. With no card, the preview has
+  `needs_card` and adding is refused with 409 before any invoice exists
+  (the invoice count is unchanged, no grant). With Stripe's
+  attach-then-decline card (4000 0000 0000 0341), the add answers 402, the
+  €242 invoice is `void`, there's no grant, and the subscription is unchanged.
+  `addon-prepaid.int.test.ts` still passes (with a card, €242 now and €605
+  then). API vitest, my.thread tsc and 103 tests pass.
+
 ## [1.277.12] — 2026-10-17
 
 ### Tooling: a production sitting, and an API deploy, run one at a time

@@ -348,7 +348,9 @@ const failed = (c: import('hono').Context, what: string, e: unknown) => {
   const status = (e as { status?: number }).status;
   if (status === 400) return c.json({ error: (e as Error).message }, 400);
   // 409 = the double-submit guard: already added / already on that tier.
-  if (status === 409) return c.json({ error: (e as Error).message }, 409);
+  if (status === 409) return c.json({ error: (e as Error).message, ...((e as { code?: string }).code ? { code: (e as { code?: string }).code } : {}) }, 409);
+  // A payment the card did not take: said as such, not as "our side".
+  if (status === 402) return c.json({ error: (e as Error).message, code: (e as { code?: string }).code ?? 'card_declined' }, 402);
   console.error(`[membership/purchases] ${what} failed`, (e as Error).message);
   return c.json({ error: `could not ${what} — try again shortly` }, 502);
 };

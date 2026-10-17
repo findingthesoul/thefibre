@@ -59,6 +59,9 @@ type ApiErrorLike = { status?: number; code?: string; message?: string };
 const CODE_KEYS: Record<string, MyKey> = {
   session_expired: 'err_session_ended',
   not_signed_in: 'err_session_ended',
+  // Adding to a membership (2026-10-17): no card to charge, or the card said no.
+  needs_card: 'addon_needs_card',
+  card_declined: 'addon_card_declined',
 };
 
 /** A sentence for an API failure. Never the API's English alone. */

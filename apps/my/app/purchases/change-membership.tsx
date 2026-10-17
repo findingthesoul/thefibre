@@ -19,6 +19,7 @@ import { friendlyError } from '@/lib/errors';
 import { PortalCallError } from '@/lib/membership-portal-client';
 import { parts } from '@/lib/i18n-parts';
 import { money as fmtMoney } from '@/lib/format';
+import { CardLine } from './card-change';
 
 type Options = {
   interval: 'year' | 'month';
@@ -28,7 +29,9 @@ type Options = {
   addons: { id: string; name: string; price_cents: number; currency: string; recurring: boolean }[];
   tiers: { id: string; name: string; price_cents: number }[];
 };
-type Quote = { due_now_cents: number; tax_now_cents: number; then_cents: number; then_tax_cents: number; credit_cents: number; currency: string };
+/** `needs_card` (additive, 2026-10-17): something is due now and there is no
+ *  card to charge it to — the window asks for one and keeps Pay disabled. */
+type Quote = { due_now_cents: number; tax_now_cents: number; then_cents: number; then_tax_cents: number; credit_cents: number; currency: string; needs_card?: boolean };
 type Choice = { kind: 'addon' | 'tier'; id: string; name: string };
 
 
@@ -175,7 +178,7 @@ export function ChangeMembership({
             <Button type="button" variant="ghost" onClick={onClose}>
               {t(locale, 'cancel')}
             </Button>
-            <Button type="button" onClick={confirm} disabled={!quote || busy}>
+            <Button type="button" onClick={confirm} disabled={!quote || busy || !!quote.needs_card}>
               {busy
                 ? t(locale, 'one_moment')
                 : quote && quote.due_now_cents > 0
@@ -243,6 +246,17 @@ export function ChangeMembership({
                 </p>
               ) : (
                 <p>{t(locale, 'nothing_charged')}</p>
+              )}
+              {quote.needs_card && (
+                <div className="mt-2 border-t border-line pt-2">
+                  <p className="font-medium text-ink">{t(locale, 'addon_needs_card')}</p>
+                  {/* The same card line as on the page: "No card on file ·
+                      change" opens the card form here, in The Fibre. */}
+                  <CardLine memberId={memberId} />
+                  <button type="button" onClick={() => choice && void pick(choice)} className="mt-1 text-xs text-ink-subtle underline underline-offset-2 hover:text-ink">
+                    {t(locale, 'addon_card_recheck')}
+                  </button>
+                </div>
               )}
               {quote.then_cents > 0 && (
                 <p className="mt-1">

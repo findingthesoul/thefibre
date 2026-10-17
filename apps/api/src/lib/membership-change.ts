@@ -266,7 +266,40 @@ export async function availableTiers(member: OwnedMember) {
   return data ?? [];
 }
 
-type Quote = { due_now_cents: number; tax_now_cents: number; then_cents: number; then_tax_cents: number; credit_cents: number; currency: string };
+type Quote = {
+  due_now_cents: number;
+  tax_now_cents: number;
+  then_cents: number;
+  then_tax_cents: number;
+  credit_cents: number;
+  currency: string;
+  /** Something is due now and there is no card to charge it to (additive,
+   *  2026-10-17): the window asks for a card first and keeps Pay disabled. */
+  needs_card?: boolean;
+};
+
+/** Whether a charge now has a card to go to: the subscription's default
+ *  payment method, else the customer's — the same rule the card line in
+ *  Purchases reads (GET /me/payment-method). A member who paid by invoice
+ *  has neither (2026-10-17: Pay then failed with a generic error and left an
+ *  open invoice behind). */
+export async function hasCard(ctx: Ctx): Promise<boolean> {
+  if (ctx.sub.default_payment_method) return true;
+  const cust = await ctx.stripe.customers.retrieve(ctx.member.stripe_customer_id, {}, { stripeAccount: ctx.account });
+  if (cust.deleted) return false;
+  const c = cust as Stripe.Customer;
+  return !!(c.invoice_settings?.default_payment_method || c.default_source);
+}
+
+/** Whether adding this way charges NOW (so a card must be there): a one-off
+ *  or a prepaid full price always; pro rata only on a subscription that is
+ *  not trialing (a trial prorates to nothing). */
+export function chargesNow(charge: 'once' | 'prepaid' | 'prorate', subStatus: string): boolean {
+  return charge !== 'prorate' || subStatus !== 'trialing';
+}
+
+const NEEDS_CARD = () =>
+  Object.assign(new Error('Add a card to your membership first: Purchases → change.'), { status: 409, code: 'needs_card' });
 
 function quoteFrom(preview: Stripe.Invoice, thenPreview: Stripe.Invoice | null): Quote {
   const tax = (inv: Stripe.Invoice) => (inv.total_taxes ?? []).reduce((s, t) => s + (t.amount ?? 0), 0);
@@ -311,6 +344,11 @@ const previewFor = (ctx: Ctx, items: Stripe.InvoiceCreatePreviewParams.Subscript
 
 /** What adding this add-on costs now and per period after. */
 export async function previewAddon(ctx: Ctx, product: { id: string; name: string; price_cents: number; price_interval: string | null; first_period_ends_on?: string | null }): Promise<Quote> {
+  const q = await previewAddonQuote(ctx, product);
+  return q.due_now_cents > 0 && !(await hasCard(ctx)) ? { ...q, needs_card: true } : q;
+}
+
+async function previewAddonQuote(ctx: Ctx, product: { id: string; name: string; price_cents: number; price_interval: string | null; first_period_ends_on?: string | null }): Promise<Quote> {
   const now = Math.floor(Date.now() / 1000);
   const fit = addonFit(product, ctx.interval);
   if (!fit) throw Object.assign(new Error(`This add-on is billed per ${product.price_interval} and cannot join a ${ctx.interval}ly membership.`), { status: 400 });
@@ -380,6 +418,10 @@ export async function addAddon(
   const mapped = (await adminClient.from('platform_setting').select('value').eq('key', prodKey).maybeSingle()).data?.value as string | undefined;
   const onSub = !!mapped && ctx.sub.items.data.some((it) => (typeof it.price.product === 'string' ? it.price.product : it.price.product.id) === mapped);
   if ((held ?? 0) > 0 || onSub) throw Object.assign(new Error(`${product.name} is already part of your membership.`), { status: 409 });
+  // No card, no charge — refused BEFORE anything is created at Stripe.
+  const fit = addonFit(product, ctx.interval);
+  const charge = addonCharge(fit, ctx.sub.status, (product as { first_period_ends_on?: string | null }).first_period_ends_on);
+  if (charge && chargesNow(charge, ctx.sub.status) && !(await hasCard(ctx))) throw NEEDS_CARD();
   const release = await claim(ctx.member.id, 'addon_claim', product.id);
   try {
     return await addAddonOnce(ctx, product, reconcile, requestId);
@@ -446,7 +488,15 @@ async function addAddonOnce(
         { stripeAccount: ctx.account, idempotencyKey: key('item-legacy') },
       ),
     );
-    const paid = await ctx.stripe.invoices.pay(inv.id!, {}, { stripeAccount: ctx.account, idempotencyKey: key('pay') });
+    let paid: Stripe.Invoice;
+    try {
+      paid = await ctx.stripe.invoices.pay(inv.id!, {}, { stripeAccount: ctx.account, idempotencyKey: key('pay') });
+    } catch (e) {
+      // A payment that did not go through leaves no open invoice behind
+      // (2026-10-17): it is voided, and nothing is added.
+      await ctx.stripe.invoices.voidInvoice(inv.id!, {}, { stripeAccount: ctx.account }).catch((v: Error) => console.error('[membership-change] could not void a failed add-on invoice', inv.id, v.message));
+      throw Object.assign(new Error('The payment did not go through with the card on your membership.'), { status: 402, code: 'card_declined', cause: e });
+    }
     invoiceId = paid.id ?? null;
     amount = paid.amount_paid ?? amount;
     ref = `addon-${paid.id}`;

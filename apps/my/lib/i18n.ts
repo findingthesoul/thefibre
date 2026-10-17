@@ -4208,6 +4208,31 @@ const CATALOG = {
     de: 'Datum folgt', // MT
     fr: 'Date à venir', // MT
   },
+  // Adding to a membership without a card on file (2026-10-17).
+  addon_needs_card: {
+    en: 'Add a card to your membership first: nothing can be charged without one.',
+    nl: 'Voeg eerst een kaart toe aan je lidmaatschap: zonder kaart kan er niets worden afgeschreven.',
+    es: 'Añade primero una tarjeta a tu membresía: sin ella no se puede cobrar nada.', // MT
+    pt: 'Adicione primeiro um cartão à sua assinatura: sem ele nada pode ser cobrado.', // MT
+    de: 'Füge deiner Mitgliedschaft zuerst eine Karte hinzu: ohne Karte kann nichts abgebucht werden.', // MT
+    fr: 'Ajoutez d’abord une carte à votre adhésion : sans carte, rien ne peut être débité.', // MT
+  },
+  addon_card_recheck: {
+    en: 'Card added? Check again',
+    nl: 'Kaart toegevoegd? Opnieuw controleren',
+    es: '¿Tarjeta añadida? Comprobar de nuevo', // MT
+    pt: 'Cartão adicionado? Verificar de novo', // MT
+    de: 'Karte hinzugefügt? Erneut prüfen', // MT
+    fr: 'Carte ajoutée ? Vérifier à nouveau', // MT
+  },
+  addon_card_declined: {
+    en: 'The payment didn’t go through with the card on your membership. Check the card and try again; nothing was added.',
+    nl: 'De betaling is niet gelukt met de kaart van je lidmaatschap. Controleer de kaart en probeer het opnieuw; er is niets toegevoegd.',
+    es: 'El pago no se realizó con la tarjeta de tu membresía. Revisa la tarjeta y vuelve a intentarlo; no se añadió nada.', // MT
+    pt: 'O pagamento não foi aprovado com o cartão da sua assinatura. Verifique o cartão e tente de novo; nada foi adicionado.', // MT
+    de: 'Die Zahlung mit der Karte deiner Mitgliedschaft hat nicht geklappt. Prüfe die Karte und versuche es erneut; es wurde nichts hinzugefügt.', // MT
+    fr: 'Le paiement n’a pas abouti avec la carte de votre adhésion. Vérifiez la carte et réessayez ; rien n’a été ajouté.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;
