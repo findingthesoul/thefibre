@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.274.1] — 2026-10-17
+
+### A read-only check that refunds with credit notes behave (tooling, API)
+
+- `apps/api/scripts/credit-notes-check.ts prod|staging [days]`, for Sjoerd's
+  terminal after the first live refunds (batch 41 put them in production).
+  For each credit note of the last days, it checks:
+  - net + VAT equals what the note credits;
+  - a purchase's notes stay within what was paid;
+  - a fully credited purchase reads 'refunded', and a partly credited one
+    does not;
+  - the member was emailed;
+  - a refund note has its Stripe refund id;
+  - a purchase with a Stripe invoice got Stripe's note, in that invoice's
+    series.
+- It prints OK or the problem per note, with numbers, amounts and ids only
+  (no names, no addresses), and exits 1 when a note needs a look. It refuses
+  when the env file points at the other project. It writes nothing.
+- It also prints the companion `fly logs | grep` for what only the log can
+  show (`[REFUND-UNRECORDED]`, a PDF or email failure, a fee mismatch).
+- Tried on staging: it flagged the two notes the cancellation test made at
+  10:29 and 10:31, before credit notes were emailed at all. That is right on
+  staging; production has no such notes, because emailing went out in the
+  same batch.
+
 ## [1.274.0] — 2026-10-17
 
 ### my.thread: a Drive file opens in a viewer (a PDF or an image right there) with Open and Download (my.thread 0.34.0)
