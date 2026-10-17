@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { promises as dns } from 'node:dns';
-import { userClient, adminClient } from '../db.js';
+import { userClient } from '../db.js';
+import { tenantDb, serviceRole } from '../lib/tenant-db.js';
 import { orIlike } from '../lib/postgrest-filter.js';
 import { rows } from '../lib/rows.js';
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
@@ -82,11 +83,7 @@ organisationsRoutes.get('/', async (c) => {
 
 /** The organisation the workspace itself is — null only before 20260915060000. */
 async function workspaceOrganisationId(workspaceId: string): Promise<string | null> {
-  const { data } = await adminClient
-    .from('workspace')
-    .select('organisation_id')
-    .eq('id', workspaceId)
-    .maybeSingle();
+  const { data } = await tenantDb(workspaceId).workspace().select('organisation_id').maybeSingle();
   return (data?.organisation_id as string | null | undefined) ?? null;
 }
 
@@ -131,13 +128,13 @@ organisationsRoutes.post('/', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
 
-  // Create via adminClient with explicit workspace scoping — see the note
+  // Create as the service role, scoped by the tenant accessor — see the note
   // in persons.ts POST (same fix, 2026-07-08): insert-through-RLS failed
   // on the returning read even for admins; membership is guaranteed by
   // the middleware and reads stay RLS-gated.
-  const { data, error } = await adminClient
+  const { data, error } = await tenantDb(ctx)
     .from('organisation')
-    .insert({ ...body.data, workspace_id: ctx.workspaceId })
+    .insert({ ...body.data })
     .select('*')
     .single();
   if (error) {
@@ -188,10 +185,9 @@ const ADMINS_ONLY = { error: 'admins only' } as const;
  *  person routes on 2026-09-25. */
 async function bothOrgsInWorkspace(workspaceId: string, a: string, b: string): Promise<boolean> {
   if (a === b) return false;
-  const { count, error } = await adminClient
+  const { count, error } = await tenantDb(workspaceId)
     .from('organisation')
     .select('id', { count: 'exact', head: true })
-    .eq('workspace_id', workspaceId)
     .is('deleted_at', null)
     .in('id', [a, b]);
   if (error) throw new Error(`organisation lookup failed: ${error.message}`);
@@ -210,7 +206,9 @@ organisationsRoutes.get('/duplicates', async (c) => {
   const parsed = OrgDuplicatesQuery.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
 
-  const { data, error } = await adminClient.rpc('organisation_duplicate_candidates', {
+  const { data, error } = await serviceRole(
+    "organisation_duplicate_candidates is given the caller's workspace as its argument",
+  ).rpc('organisation_duplicate_candidates', {
     p_workspace: ctx.workspaceId,
     p_limit: parsed.data.limit,
   });
@@ -235,10 +233,9 @@ organisationsRoutes.get('/duplicates', async (c) => {
   const ids = [...new Set(pairs.flatMap((p) => [p.a_id, p.b_id]))];
   const extra = rows(
     'organisations/duplicates: compared fields',
-    await adminClient
+    await tenantDb(ctx)
       .from('organisation')
       .select('id, legal_name, city, country, website, created_at')
-      .eq('workspace_id', ctx.workspaceId)
       .is('deleted_at', null)
       .in('id', ids),
   );
@@ -303,9 +300,8 @@ organisationsRoutes.post('/duplicates/distinct', async (c) => {
   // The table's own CHECK is a_id < b_id, so the pair is ordered here rather
   // than relying on the order somebody's browser happened to send.
   const [a, b] = [body.data.a_id, body.data.b_id].sort();
-  const { error } = await adminClient.from('organisation_distinct').upsert(
+  const { error } = await tenantDb(ctx).from('organisation_distinct').upsert(
     {
-      workspace_id: ctx.workspaceId,
       a_id: a,
       b_id: b,
       decided_by: ctx.userId || null,
@@ -340,7 +336,9 @@ organisationsRoutes.get('/merge-conflicts', async (c) => {
     return c.json({ error: 'organisation not found' }, 404);
   }
 
-  const { data, error } = await adminClient.rpc('organisation_merge_conflicts', {
+  const { data, error } = await serviceRole(
+    'organisation_merge_conflicts: both ids proven in this workspace just above',
+  ).rpc('organisation_merge_conflicts', {
     p_keep: keep,
     p_merge: merge,
   });
@@ -382,7 +380,9 @@ organisationsRoutes.post('/merge', async (c) => {
     return c.json({ error: 'organisation not found' }, 404);
   }
 
-  const { data, error } = await adminClient.rpc('merge_organisation', {
+  const { data, error } = await serviceRole(
+    'merge_organisation: both ids proven in this workspace just above',
+  ).rpc('merge_organisation', {
     p_keep: body.data.keep_id,
     p_merge: body.data.merge_id,
     p_actor: ctx.userId || null,
@@ -416,14 +416,15 @@ organisationsRoutes.post('/merges/:id/undo', async (c) => {
   // unmerge_organisation, as the service role, would happily put back another
   // workspace's merge. The audit row carries its own workspace, so this is
   // the whole tenancy check for an undo.
-  const { count: owned } = await adminClient
+  const { count: owned } = await tenantDb(ctx)
     .from('organisation_merge')
     .select('id', { count: 'exact', head: true })
-    .eq('id', c.req.param('id'))
-    .eq('workspace_id', ctx.workspaceId);
+    .eq('id', c.req.param('id'));
   if (owned !== 1) return c.json({ error: 'merge not found' }, 404);
 
-  const { error } = await adminClient.rpc('unmerge_organisation', {
+  const { error } = await serviceRole(
+    "unmerge_organisation: the merge row is proven this workspace's just above",
+  ).rpc('unmerge_organisation', {
     p_merge_id: c.req.param('id'),
     p_actor: ctx.userId || null,
   });
@@ -439,10 +440,9 @@ organisationsRoutes.get('/merges', async (c) => {
   const ctx = c.get('ctx');
   if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
 
-  const { data, error } = await adminClient
+  const { data, error } = await tenantDb(ctx)
     .from('organisation_merge')
     .select('id, kept_org_id, merged_org_id, merged_at, merged_by, undone_at, dropped')
-    .eq('workspace_id', ctx.workspaceId)
     .order('merged_at', { ascending: false })
     .limit(100);
   if (error) return c.json({ error: error.message }, 500);

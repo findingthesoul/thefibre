@@ -904,39 +904,6 @@
   "oauth_code.update": 2,
   "person.select": 1
  },
- "routes/organisations.ts": {
-  "organisation.insert": 1,
-  "organisation.select": 2,
-  "organisation_distinct.upsert": 1,
-  "organisation_merge.select": 2,
-  "rpc:merge_organisation": 1,
-  "rpc:organisation_duplicate_candidates": 1,
-  "rpc:organisation_merge_conflicts": 1,
-  "rpc:unmerge_organisation": 1,
-  "workspace.select": 1
- },
- "routes/persons.ts": {
-  "hygiene_finding.select": 1,
-  "hygiene_finding.update": 1,
-  "hygiene_finding.upsert": 1,
-  "org_membership.select": 1,
-  "organisation.select": 1,
-  "person.insert": 1,
-  "person.select": 3,
-  "person.update": 1,
-  "person_contact_point.delete": 1,
-  "person_contact_point.select": 2,
-  "person_contact_point.update": 1,
-  "person_contact_point.upsert": 1,
-  "person_merge.select": 3,
-  "rpc:merge_person": 1,
-  "rpc:person_and_merged": 1,
-  "rpc:person_contact_point_remark": 4,
-  "rpc:person_duplicate_candidates": 1,
-  "rpc:person_merge_conflicts": 1,
-  "rpc:person_merge_fill_preview_pairs": 1,
-  "rpc:unmerge_person": 1
- },
  "routes/plan.ts": {
   "billing_plan.select": 1,
   "workspace_subscription.select": 1

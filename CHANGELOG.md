@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.19] — 2026-10-17
+
+### Security, F2: the person and organisation routes on the tenant accessor (API)
+
+- **`routes/persons.ts` and `routes/organisations.ts` no longer use the raw
+  service-role client.** Every table query goes through `tenantDb(ctx)`, which
+  adds the caller's workspace to each read, update and delete and stamps it
+  on each insert. Before, each query carried its own hand-written filter or
+  relied on an earlier line. Organisation memberships are reached through the
+  person they belong to (`child()`). The stored procedures behind duplicates
+  and merges stay service-role, each with its reason written next to it. They
+  take ids that the route has just proven are in the caller's workspace, or
+  the workspace id itself.
+- **Saving a person's addresses is refused unless the person is in the
+  caller's workspace.** This check sits beside the existing one that the
+  person is visible to the caller.
+- One upsert stays on the raw client with its reason. The address table's
+  unique key does not include the workspace, so the accessor refuses it by
+  design. The person it writes to is proven ours first, and every row
+  carries our workspace id.
+- **Service-role baseline: 1,697 → 1,658.**
+- Tests: `persons-contact-points-tenancy.int.test.ts` runs on staging with
+  two throwaway workspaces. An admin of one workspace cannot write the other
+  workspace's person's addresses, or link an address to the other
+  workspace's organisation. A pair from the other workspace can't be
+  answered and is never proposed. Inside their own workspace, saving,
+  replacing and removing addresses still work, and their own pairs are
+  proposed. A sabotage run with the organisation check unscoped fails the
+  test. The existing person and organisation int suites pass on staging:
+  merge tenancy, merges, reads, hierarchy and memberships (8 files, 64
+  tests). Unit suite: 1,332 pass.
+- **`e2e/contact-points.spec.ts`** (new, fixture identity) runs through the
+  real screen. It opens a contact's page and adds an address in the edit
+  dialog, then asserts the address is in the table under the fixture
+  workspace, with person.email still on the primary. It also opens an
+  organisation's page. The person-duplicates, org-duplicates and
+  org-merge-screen specs exercise the duplicate and merge screens.
+
 ## [1.277.18] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 2, step 5: a contact's Membership tab is for admins (API)

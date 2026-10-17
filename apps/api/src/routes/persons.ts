@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { userClient, adminClient } from '../db.js';
+import { userClient } from '../db.js';
+import { tenantDb, serviceRole } from '../lib/tenant-db.js';
 import { count as countOf, rows } from '../lib/rows.js';
 import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
@@ -127,8 +128,9 @@ personsRoutes.post('/', async (c) => {
 
   const ctx = c.get('ctx');
 
-  // Create via adminClient with explicit workspace scoping — the platform
-  // pattern for contact creation (Meet/Thread enrolment does the same).
+  // Create as the service role, scoped by the tenant accessor (which stamps
+  // workspace_id) — the platform pattern for contact creation (Meet/Thread
+  // enrolment does the same).
   // Insert-through-RLS kept failing here even after the 20260708150000
   // policy split (RLS violated on the returning read); the middleware
   // already guarantees the caller is a member of ctx.workspaceId.
@@ -155,12 +157,11 @@ personsRoutes.post('/', async (c) => {
   }
 
   const { email_label: emailLabel, phone_label: phoneLabel, ...personFields } = body.data;
-  const { data, error } = await adminClient
+  const { data, error } = await tenantDb(ctx)
     .from('person')
     .insert({
       ...personFields,
       ...(normalisedEmail ? { email: normalisedEmail } : {}),
-      workspace_id: ctx.workspaceId,
       created_via: 'manual',
     })
     .select('id, first_name, last_name, email, country, created_at')
@@ -183,7 +184,7 @@ personsRoutes.post('/', async (c) => {
   ] as const) {
     const value = normaliseContactValue(kind, raw as string | null | undefined);
     if (!label || !value) continue;
-    await adminClient
+    await tenantDb(ctx)
       .from('person_contact_point')
       .update({ label })
       .eq('person_id', data.id)
@@ -298,10 +299,9 @@ const ADMINS_ONLY = { error: 'admins only' } as const;
  *  do not know who is asking, so the route has to. */
 async function bothInWorkspace(workspaceId: string, a: string, b: string): Promise<boolean> {
   if (a === b) return false;
-  const { count, error } = await adminClient
+  const { count, error } = await tenantDb(workspaceId)
     .from('person')
     .select('id', { count: 'exact', head: true })
-    .eq('workspace_id', workspaceId)
     .is('deleted_at', null)
     .in('id', [a, b]);
   if (error) throw new Error(`person lookup failed: ${error.message}`);
@@ -315,14 +315,23 @@ async function bothInWorkspace(workspaceId: string, a: string, b: string): Promi
  * duplicate is tidied away.
  */
 async function personAndMerged(personId: string): Promise<string[]> {
-  const { data, error } = await adminClient.rpc('person_and_merged', { p_person: personId });
+  const { data, error } = await serviceRole(
+    'person_and_merged expands one id; the activity read that uses the ids runs through RLS',
+  ).rpc('person_and_merged', { p_person: personId });
   if (error || !data) return [personId];
   const rows = data as unknown as (string | { person_and_merged: string })[];
   const ids = rows.map((x) => (typeof x === 'string' ? x : x.person_and_merged)).filter(Boolean);
   return ids.length ? ids : [personId];
 }
 
-
+/** Re-derive which address of a person is primary. Every caller has proven
+ *  the person is in its workspace first. */
+function remarkContactPoints(personId: string) {
+  return serviceRole('person_contact_point_remark: one person the caller has proven is theirs').rpc(
+    'person_contact_point_remark',
+    { p_person: personId },
+  );
+}
 
 const DuplicatesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -339,7 +348,9 @@ personsRoutes.get('/duplicates', async (c) => {
   const parsed = DuplicatesQuery.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
 
-  const { data, error } = await adminClient.rpc('person_duplicate_candidates', {
+  const { data, error } = await serviceRole(
+    "person_duplicate_candidates is given the caller's workspace as its argument",
+  ).rpc('person_duplicate_candidates', {
     p_workspace: ctx.workspaceId,
     p_limit: parsed.data.limit,
     p_threshold: parsed.data.threshold,
@@ -356,10 +367,9 @@ personsRoutes.get('/duplicates', async (c) => {
   // already called "different people" came back to be asked again (§1.9).
   const answered = rows(
     'persons/duplicates: answered pairs',
-    await adminClient
+    await tenantDb(ctx)
       .from('hygiene_finding')
       .select('subject_id, related_id')
-      .eq('workspace_id', ctx.workspaceId)
       .eq('kind', 'duplicate_person')
       .in('status', ['dismissed', 'accepted']),
   );
@@ -372,20 +382,19 @@ personsRoutes.get('/duplicates', async (c) => {
   // The two cards somebody compares before merging. A failed read here used
   // to draw both people with no addresses and no organisation — exactly the
   // evidence the decision is made on — so it throws instead.
+  const db = tenantDb(ctx);
+  const memberships = await db.child('org_membership', { via: 'person', key: 'person_id', id: ids });
+  if (!memberships) throw new Error('persons/duplicates: a candidate is not a person of this workspace');
   const [peopleQ, pointsQ, orgsQ] = await Promise.all([
-    adminClient
+    db
       .from('person')
       .select('id, first_name, last_name, email, city, country, created_at, created_via')
       .in('id', ids),
-    adminClient
+    db
       .from('person_contact_point')
       .select('person_id, kind, value, label, is_primary')
       .in('person_id', ids),
-    adminClient
-      .from('org_membership')
-      .select('person_id, ended_at, organisation:org_id (name)')
-      .in('person_id', ids)
-      .is('ended_at', null),
+    memberships.select('person_id, ended_at, organisation:org_id (name)').is('ended_at', null),
   ]);
   const people = rows('persons/duplicates: people', peopleQ);
   const points = rows('persons/duplicates: contact points', pointsQ);
@@ -418,7 +427,9 @@ personsRoutes.get('/duplicates', async (c) => {
   // where swallowing is right — the reads above throw, because a card drawn
   // with no address is evidence somebody then decides on.
   const gains = new Map<string, { a: string[]; b: string[] }>();
-  const previewQ = await adminClient.rpc('person_merge_fill_preview_pairs', {
+  const previewQ = await serviceRole(
+    "person_merge_fill_preview_pairs compares pairs this workspace's own candidate query returned",
+  ).rpc('person_merge_fill_preview_pairs', {
     p_pairs: pairs.map((p) => ({ a: p.person_a, b: p.person_b })),
   });
   if (previewQ.error) {
@@ -470,9 +481,8 @@ async function answerPair(
   status: 'dismissed' | 'accepted',
 ) {
   const [subject, related] = pairOrder(a, b);
-  return adminClient.from('hygiene_finding').upsert(
+  return tenantDb(ctx).from('hygiene_finding').upsert(
     {
-      workspace_id: ctx.workspaceId,
       kind: 'duplicate_person',
       subject_table: 'person',
       subject_id: subject,
@@ -493,10 +503,9 @@ personsRoutes.post('/duplicates/distinct', async (c) => {
   if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
   const body = PairBody.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  const { count } = await adminClient
+  const { count } = await tenantDb(ctx)
     .from('person')
     .select('id', { count: 'exact', head: true })
-    .eq('workspace_id', ctx.workspaceId)
     .in('id', [body.data.a_id, body.data.b_id]);
   if (count !== 2) return c.json({ error: 'person not found' }, 404);
   const { error } = await answerPair(ctx, body.data.a_id, body.data.b_id, 'dismissed');
@@ -527,7 +536,9 @@ personsRoutes.get('/merge-conflicts', async (c) => {
     return c.json({ error: 'person not found' }, 404);
   }
 
-  const { data, error } = await adminClient.rpc('person_merge_conflicts', {
+  const { data, error } = await serviceRole(
+    'person_merge_conflicts: both ids proven in this workspace just above',
+  ).rpc('person_merge_conflicts', {
     p_keep: keep,
     p_merge: merge,
   });
@@ -574,7 +585,9 @@ personsRoutes.post('/merge', async (c) => {
     return c.json({ error: 'person not found' }, 404);
   }
 
-  const { data, error } = await adminClient.rpc('merge_person', {
+  const { data, error } = await serviceRole('merge_person: both ids proven in this workspace just above').rpc(
+    'merge_person',
+    {
     p_keep: body.data.keep_id,
     p_merge: body.data.merge_id,
     p_actor: ctx.userId || null,
@@ -583,8 +596,9 @@ personsRoutes.post('/merge', async (c) => {
     // filtered here: silently dropping a choice is how somebody's decision
     // disappears without anybody learning that it did, and a raise arrives as
     // a 400 with the column named below.
-    p_choices: body.data.choices ?? {},
-  });
+      p_choices: body.data.choices ?? {},
+    },
+  );
   if (error) {
     console.error('[persons/merge] failed', {
       code: error.code,
@@ -597,7 +611,7 @@ personsRoutes.post('/merge', async (c) => {
     return c.json({ error: error.message }, 400);
   }
   // The merged person's addresses arrived still flagged primary.
-  await adminClient.rpc('person_contact_point_remark', { p_person: body.data.keep_id });
+  await remarkContactPoints(body.data.keep_id);
   await answerPair(ctx, body.data.keep_id, body.data.merge_id, 'accepted');
   return c.json({ merge_id: data as string }, 201);
 });
@@ -610,14 +624,14 @@ personsRoutes.post('/merges/:id/undo', async (c) => {
   // The merge row has to be this workspace's BEFORE the RPC runs: the lookup
   // further down only guards the post-processing, and unmerge_person, as the
   // service role, would happily put back another workspace's merge.
-  const { count: owned } = await adminClient
+  const db = tenantDb(ctx);
+  const { count: owned } = await db
     .from('person_merge')
     .select('id', { count: 'exact', head: true })
-    .eq('id', c.req.param('id'))
-    .eq('workspace_id', ctx.workspaceId);
+    .eq('id', c.req.param('id'));
   if (owned !== 1) return c.json({ error: 'merge not found' }, 404);
 
-  const { error } = await adminClient.rpc('unmerge_person', {
+  const { error } = await serviceRole("unmerge_person: the merge row is proven this workspace's just above").rpc('unmerge_person', {
     p_merge_id: c.req.param('id'),
     p_actor: ctx.userId || null,
   });
@@ -625,23 +639,21 @@ personsRoutes.post('/merges/:id/undo', async (c) => {
     console.error('[persons/merges/undo] failed', error);
     return c.json({ error: error.message }, 400);
   }
-  const { data: m } = await adminClient
+  const { data: m } = await db
     .from('person_merge')
     .select('kept_person_id, merged_person_id')
     .eq('id', c.req.param('id'))
-    .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (m) {
     await Promise.all([
-      adminClient.rpc('person_contact_point_remark', { p_person: m.kept_person_id }),
-      adminClient.rpc('person_contact_point_remark', { p_person: m.merged_person_id }),
+      remarkContactPoints(m.kept_person_id as string),
+      remarkContactPoints(m.merged_person_id as string),
     ]);
     // Undone means unanswered again: back into the queue.
     const [subject, related] = pairOrder(m.kept_person_id as string, m.merged_person_id as string);
-    await adminClient
+    await db
       .from('hygiene_finding')
       .update({ status: 'open', resolved_at: null, resolved_by: null })
-      .eq('workspace_id', ctx.workspaceId)
       .eq('kind', 'duplicate_person')
       .eq('subject_id', subject)
       .eq('related_id', related);
@@ -654,10 +666,9 @@ personsRoutes.get('/merges', async (c) => {
   const ctx = c.get('ctx');
   if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
 
-  const { data, error } = await adminClient
+  const { data, error } = await tenantDb(ctx)
     .from('person_merge')
     .select('id, kept_person_id, merged_person_id, merged_at, merged_by, undone_at, dropped')
-    .eq('workspace_id', ctx.workspaceId)
     .order('merged_at', { ascending: false })
     .limit(100);
   if (error) return c.json({ error: error.message }, 500);
@@ -728,14 +739,14 @@ personsRoutes.put('/:id/contact-points', async (c) => {
     .eq('id', personId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (!person) return c.json({ error: 'person not found' }, 404);
+  if (!person || person.workspace_id !== ctx.workspaceId) return c.json({ error: 'person not found' }, 404);
+  const scoped = tenantDb(ctx);
 
   const orgIds = [...new Set(cleaned.points.map((p) => p.org_id).filter(Boolean))] as string[];
   if (orgIds.length) {
-    const { count } = await adminClient
+    const { count } = await scoped
       .from('organisation')
       .select('id', { count: 'exact', head: true })
-      .eq('workspace_id', person.workspace_id)
       .in('id', orgIds);
     if (count !== orgIds.length) return c.json({ error: 'unknown organisation' }, 400);
   }
@@ -744,25 +755,30 @@ personsRoutes.put('/:id/contact-points', async (c) => {
   // removed and a 200: the address somebody deleted stayed, silently.
   const existing = rows(
     'person contact points: existing',
-    await adminClient.from('person_contact_point').select('id, kind, value').eq('person_id', personId),
+    await scoped.from('person_contact_point').select('id, kind, value').eq('person_id', personId),
   );
   const keep = new Set(cleaned.points.map((p) => `${p.kind}:${p.value}`));
   const gone = existing.filter((r) => !keep.has(`${r.kind}:${r.value}`)).map((r) => r.id as string);
 
-  const { error: upErr } = await adminClient.from('person_contact_point').upsert(
-    cleaned.points.map((p) => ({ ...p, person_id: personId, workspace_id: person.workspace_id })),
+  // The table's unique key is (person_id, kind, value), without workspace_id,
+  // so the accessor cannot take this upsert. The person is proven ours above
+  // and every row carries this workspace's id.
+  const { error: upErr } = await serviceRole(
+    'contact point upsert keyed on a person proven to be in this workspace',
+  ).from('person_contact_point').upsert(
+    cleaned.points.map((p) => ({ ...p, person_id: personId, workspace_id: ctx.workspaceId })),
     { onConflict: 'person_id,kind,value' },
   );
   if (upErr) return c.json({ error: upErr.message }, 500);
   if (gone.length) {
-    const { error: delErr } = await adminClient.from('person_contact_point').delete().in('id', gone);
+    const { error: delErr } = await scoped.from('person_contact_point').delete().in('id', gone);
     if (delErr) return c.json({ error: delErr.message }, 500);
   }
 
   // Primaries onto the person; the trigger would re-add a removed address if
   // it were still in email_secondary/phone_secondary, so those clear — the
   // table is where secondary addresses live now.
-  const { error: pErr } = await adminClient
+  const { error: pErr } = await scoped
     .from('person')
     .update({
       email: cleaned.primaryEmail,
@@ -772,7 +788,7 @@ personsRoutes.put('/:id/contact-points', async (c) => {
     })
     .eq('id', personId);
   if (pErr) return c.json({ error: pErr.message }, 500);
-  await adminClient.rpc('person_contact_point_remark', { p_person: personId });
+  await remarkContactPoints(personId);
 
   const points = rows(
     'person contact points: after save',

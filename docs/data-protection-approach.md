@@ -432,7 +432,9 @@ surface; the filter injection; the public-POST brake; Dependabot.
   handler is still the only way to know). Converting them module by module is
   F2, each release with a cross-workspace test; the baseline count is the
   measure of progress (`node apps/api/scripts/service-role-report.mjs`).
-  P1.7 (the app-key routes) is the first batch of F2.
+  P1.7 (the app-key routes) is the first batch of F2. Converted so far: the
+  published Thread and Flow app routes, then the person and organisation
+  routes (contacts, addresses, duplicates, merges). Baseline 1,658.
 - **A personal MCP grant holds an encrypted Supabase session** and can carry
   write scopes (`thread:write`, `models:write`). `ASSISTANT_KEY_SECRET`
   encrypts those sessions as well as workspace keys: rotating it disconnects
