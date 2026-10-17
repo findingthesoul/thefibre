@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.7] — 2026-10-17
+
+### Security, part 2: a script removes the portal access that typed addresses were already given (operations; dry run by default)
+
+- **`apps/api/scripts/unstamp-unproven-contact-points.ts`**, the cleanup half
+  of v1.277.4. That release stops new wrong stamps; this removes the ones
+  already made. It lists every stamped (`verified_at`) secondary email
+  contact point whose person shows no evidence of the participant's own use
+  of that address (the same rule markEmailProven now applies; it calls the
+  same `evidencedPersons`). Primary points are left alone: they grant
+  nothing that `person.email` doesn't already.
+  - **Dry run by default.** It prints workspace, person and address for each
+    point to the terminal running it, nowhere else.
+  - **`--apply`** writes a restore file (point ids and their `verified_at`)
+    BEFORE it changes anything, un-stamps in chunks, then reads back
+    (expects 0 still stamped).
+  - **`--restore <file>`** puts exactly those stamps back, only where they
+    are still unstamped, and reads back.
+  - Un-stamping removes portal access through that address only. The person,
+    the address and every record stay, and a later sign-in with evidence
+    stamps it again.
+- **Rehearsed on STAGING** in a throwaway workspace with a typed point
+  stamped without evidence, a paid point with a purchase, and two primary
+  points, all stamped. The dry run across all of staging listed exactly the
+  typed point (64 stamped points, 2 secondary addresses checked). `--apply`
+  un-stamped it and read back 0. The paid and primary points stayed stamped.
+  `--restore` put it back (read back 1), and a second restore changed
+  nothing. Torn down and read back gone.
+- `evidencedPersons` in `lib/proven-email.ts` is exported for it (unchanged
+  otherwise). Production: Sjoerd runs the dry run, reads the list, then
+  `--apply` (his yes, given 2026-10-17, after seeing the list).
+
 ## [1.277.6] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 2, step 3: the backfill script that gives OLD activity rows their thread or booking (tooling)

@@ -66,7 +66,7 @@ export function pointsWithEvidence(
 }
 
 /** The person ids among `personIds` that show evidence for `value`. */
-async function evidencedPersons(value: string, personIds: string[]): Promise<Set<string>> {
+export async function evidencedPersons(value: string, personIds: string[]): Promise<Set<string>> {
   const db = serviceRole('portal identity: keyed on a proven email address and its person ids, across workspaces by design');
   const [purchases, bookings, users, merges] = await Promise.all([
     db.from('purchase').select('person_id').in('person_id', personIds).eq('payer_email', value),
