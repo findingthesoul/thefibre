@@ -466,3 +466,31 @@ describe('a thread with no dated session yet', () => {
     expect(e!.startsOnly).toBeUndefined();
   });
 });
+
+describe('a booking reads in its own zone (API v1.267.3)', () => {
+  const meet = (timezone?: string | null) => ({
+    booking_id: 'b1',
+    title: 'Coaching call',
+    host: 'Anna',
+    starts_at: '2027-01-12T16:00:00Z',
+    ends_at: '2027-01-12T17:00:00Z',
+    status: 'confirmed',
+    meet_url: null,
+    location: null,
+    ...(timezone === undefined ? {} : { timezone }),
+  });
+
+  it('uses the zone the API sends', () => {
+    const [e] = buildTimeline(portal([group({ meets: [meet('America/New_York')] })]), NOW);
+    expect(e!.time).toBe('11:00');
+    expect(e!.timeZone).toBe('America/New_York');
+  });
+
+  it('falls back to Amsterdam when it is null, or absent from an older API', () => {
+    for (const tz of [null, undefined]) {
+      const [e] = buildTimeline(portal([group({ meets: [meet(tz)] })]), NOW);
+      expect(e!.time).toBe('17:00');
+      expect(e!.timeZone).toBe('Europe/Amsterdam');
+    }
+  });
+});

@@ -207,11 +207,11 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
         organiser: g.name,
         workspaceId: g.workspace_id,
         dateIso: m.starts_at,
-        // A booking carries no zone of its own in the portal payload yet: the
-        // platform default, never the server's.
-        time: hhmm(m.starts_at, DEFAULT_TZ),
-        timeZone: DEFAULT_TZ,
-        dayZone: DEFAULT_TZ,
+        // The booking's own zone (API v1.267.3); the platform default when an
+        // older API sends none — never the server's.
+        time: hhmm(m.starts_at, m.timezone || DEFAULT_TZ),
+        timeZone: m.timezone || DEFAULT_TZ,
+        dayZone: m.timezone || DEFAULT_TZ,
         where: m.location ?? null,
         withHost: m.location ? null : (m.host ?? null),
         whereUrl: null,

@@ -40,7 +40,9 @@ export function CommunityPage({ c, locale }: { c: CommunityView; locale: Locale 
           <div className="mt-3 rounded-2xl border border-line bg-surface p-5">
             <p className="text-base text-ink">{c.next.title}</p>
             <p className="mt-0.5 text-sm text-ink-muted">
-              {c.next.kind === 'yours' ? fmtDateTime(c.next.starts_at, locale, DEFAULT_TZ) : fmtDate(c.next.starts_at, locale, DEFAULT_TZ)}
+              {c.next.kind === 'yours'
+                ? fmtDateTime(c.next.starts_at, locale, c.next.timezone || DEFAULT_TZ)
+                : fmtDate(c.next.starts_at, locale, c.next.timezone || DEFAULT_TZ)}
               {c.next.thread_title ? ` · ${c.next.thread_title}` : ''}
             </p>
             {c.next.kind === 'upcoming' && (

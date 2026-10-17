@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.267.4] — 2026-10-17
+
+### my.thread reads bookings, notifications and Home's "next" in their own time zone (my.thread 0.32.2)
+
+- This finishes v1.262.2's time-zone fix. Those three items carried no zone,
+  so my.thread used Europe/Amsterdam for them. Builder 3's v1.267.3 now sends
+  `timezone` on each (Meet bookings: the guest's booking zone, else the
+  host's; notifications and Home's "next": the thread's).
+- my.thread formats each in that zone. `DEFAULT_TZ` stays the fallback for
+  `null`, and for an older API that doesn't send the field: the frontend and
+  the API deploy separately.
+- Tested: unit `timeline` +2 (a New York booking reads 11:00; null and absent
+  both read as Amsterdam), 29/29 under TZ=UTC and Los Angeles; apps/my 86/86.
+
 ## [1.267.3] — 2026-10-17
 
 ### The portal API says which time zone each item is in: Meet bookings, notifications, a community's next (API only)

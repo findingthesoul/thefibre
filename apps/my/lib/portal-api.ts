@@ -132,6 +132,9 @@ export type MeetItem = {
   status: string;
   meet_url: string | null;
   location: string | null;
+  /** The booking's zone — the guest's own, else the host's (IANA), or
+   *  null/absent: then DEFAULT_TZ. Additive, API v1.267.3. */
+  timezone?: string | null;
 };
 
 /**
@@ -315,7 +318,7 @@ export type CommunityView = {
    *  entry's own id (GET /me/portal/community/:ws/drive/:docId). */
   documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string } | { id: string; title: string; kind: 'drive' })[];
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
-  next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
+  next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming'; timezone?: string | null } | null;
 };
 
 /** THROWS on failure, so a broken call is not mistaken for "no community". */
@@ -358,6 +361,9 @@ export type MemberNotification = {
   read: boolean;
   created_at: string;
   community: string | null;
+  /** The thread's zone (IANA), or null/absent: then DEFAULT_TZ. Additive,
+   *  API v1.267.3 — an older API simply does not send it. */
+  timezone?: string | null;
 };
 
 /** THROWS on failure: an empty list and a broken call must not look alike. */

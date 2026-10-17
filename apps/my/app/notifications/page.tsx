@@ -72,8 +72,8 @@ export default async function NotificationsPage({
                   <p className="mt-0.5 text-sm text-ink-muted">
                     {n.starts_at
                       ? n.kind === 'new_thread'
-                        ? fmtDate(n.starts_at, locale, DEFAULT_TZ)
-                        : fmtDateTime(n.starts_at, locale, DEFAULT_TZ)
+                        ? fmtDate(n.starts_at, locale, n.timezone || DEFAULT_TZ)
+                        : fmtDateTime(n.starts_at, locale, n.timezone || DEFAULT_TZ)
                       : ''}
                   </p>
                 </div>
