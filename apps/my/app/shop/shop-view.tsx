@@ -9,7 +9,6 @@
 // Purchases, where it is stopped.
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE, ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
@@ -152,11 +151,10 @@ export function ShopView({ communities, renewals, buyer }: { communities: ShopCo
                 {c.owned.map((p) => (
                   <li key={p.id} data-item={p.name} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
                     <div className="truncate text-sm text-ink">{p.name}</div>
-                    {p.recurring && (
-                      <Link href="/purchases" className="shrink-0 text-xs text-ink underline underline-offset-2 hover:opacity-70">
-                        {t(locale, 'shop_stop_in_purchases')}
-                      </Link>
-                    )}
+                    {/* The fact only: stopping lives in Purchases alone (Sjoerd,
+                        2026-10-17, "not ... nudged to click on it whenever
+                        they can"). */}
+                    {p.recurring && <span className="shrink-0 text-xs text-ink-muted">{t(locale, 'shop_renews')}</span>}
                   </li>
                 ))}
               </ul>

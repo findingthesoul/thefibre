@@ -13,6 +13,7 @@
 
 import Link from 'next/link';
 import { loadSession } from '@/lib/session';
+import { fetchRenewals } from '@/lib/portal-api';
 import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import { JoinPrice } from '../join-price';
 import { GoogleCard } from './google-card';
@@ -51,6 +52,15 @@ export default async function MembershipsPage() {
 
   const items = session.portal.groups.flatMap((g) =>
     g.memberships.map((m) => ({ ...m, workspace: g.name })),
+  );
+  // Whether a renewal was STOPPED is Stripe's to say, and Purchases already
+  // asks it (/me/renewals). Read here too, only when a card membership is
+  // shown, so a stopped one does not claim "Renews …" (found 2026-10-17).
+  // A failed read keeps the old line: never worse than before.
+  const stopped = new Set(
+    items.some((m) => m.status === 'active' && m.has_stripe)
+      ? ((await fetchRenewals(session.token))?.memberships ?? []).filter((r) => r.stops_at_period_end).map((r) => r.member_id)
+      : [],
   );
 
   // YOUR PRODUCTS, AND NOT ONLY A MEMBER'S.
@@ -98,7 +108,12 @@ export default async function MembershipsPage() {
                   <p className="mt-2 text-sm text-ink-subtle">{t(locale, STATE_NOTE[m.status]!)}</p>
                 )}
                 {m.status === 'active' && m.renews_at && (
-                  <p className="mt-2 text-xs text-ink-muted">{t(locale, 'renews_date', { date: fmtDate(m.renews_at, locale, DEFAULT_TZ) ?? '' })}</p>
+                  <p className="mt-2 text-xs text-ink-muted">
+                    {stopped.has(m.member_id)
+                      ? // The last day it is active: the period ends at the next one's first instant.
+                        t(locale, 'renew_stops', { date: fmtDate(new Date(Date.parse(m.renews_at) - 1000).toISOString(), locale, DEFAULT_TZ) ?? '' })
+                      : t(locale, 'renews_date', { date: fmtDate(m.renews_at, locale, DEFAULT_TZ) ?? '' })}
+                  </p>
                 )}
                 {m.started_at && (
                   <p className="mt-0.5 text-xs text-ink-muted">

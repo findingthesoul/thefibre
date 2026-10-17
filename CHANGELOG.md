@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.273.1] — 2026-10-17
+
+### my.thread: stopping a renewal has one quiet home, in Purchases (my.thread 0.33.2)
+
+- Sjoerd: "make the stop renewal not so easily visible at every possible
+  spot. It needs to be clear, but people do not need to be nudged to click
+  on it whenever they can." He approved the proposal as written.
+- **Purchases is the only place to stop.** A membership or subscription
+  row now states the fact ("Renews on 17 October 2027 at €300.00.") and
+  ends in a small text link, **Manage renewal**. It opens a window with
+  the same fact, **Stop renewal** (danger style) and **Close**, and Stop
+  still asks once more ("Stop the renewal?"). The row no longer carries a
+  Stop button. **Add or change** stays a button.
+- **Once stopped**, the row reads "Does not renew. Active until …" with a
+  plain **Resume renewal** link, so undoing stays easy.
+- **Shop → "You have this"**: "Stop renewal in Purchases" is gone, and a
+  renewing product now says only "Renews automatically".
+- **Memberships**: a card whose renewal was stopped now says "Does not
+  renew. Active until …" instead of "Renews …" (a bug, found while taking
+  the inventory). It asks the same renewals endpoint Purchases uses, only
+  when a card membership is shown. A failed read keeps the old line.
+- New e2e `renewal-quiet.spec.ts` (exclusive project, a real Stripe TEST
+  subscription on the fixture). It checks the shop's fact and that no stop
+  link is there, that the row has no Stop button but has "Add or change",
+  then Manage renewal → window → Stop → confirm → "Does not renew" plus
+  Resume. It checks that Memberships says "Does not renew", resumes, and
+  asks Stripe that `cancel_at_period_end` is false again. Run against a
+  local build of this branch on the staging API: passed, with before/after
+  screenshots. Help still says where to find it.
+
 ## [1.273.0] — 2026-10-17
 
 ### Drive files open in a viewer: the API serves a PDF or an image inline, for my.thread to frame (API)

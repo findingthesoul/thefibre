@@ -4,10 +4,20 @@
 // resume the renewal HERE, in The Fibre — Sjoerd, 2026-10-15: "Manage payment
 // should not go to Stripe." The figure is Stripe's own preview of the next
 // invoice, so it is what will actually be charged: net, VAT, total.
+//
+// ONE QUIET PLACE TO STOP (Sjoerd, 2026-10-17: "make the stop renewal not so
+// easily visible at every possible spot. It needs to be clear, but people do
+// not need to be nudged to click on it whenever they can."). This page is
+// the only place that stops a renewal. The row states the fact and ends in
+// a small text link, "Manage renewal", which opens a window with the fact
+// and the Stop button; Stop then asks once more (the confirm). Two
+// deliberate steps, never a button in a list. Once stopped, "Resume
+// renewal" is a plain link on the row: undoing should be easy. "Add or
+// change" stays a button, because that is the action we want found.
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ConfirmDialog } from '@thefibre/shared/ui/dialog';
+import { ConfirmDialog, Dialog } from '@thefibre/shared/ui/dialog';
 import { Button } from '@thefibre/shared/ui/button';
 import { browserSupabase } from '@/lib/supabase/client';
 import type { MyProductSubscription, MyRenewal } from '@/lib/portal-api';
@@ -41,6 +51,35 @@ function renewsLine(
     : t(locale, 'renews_on_at', { date: day(renewsAt), total: money(n.total) });
 }
 
+/** The quiet link at the end of a renewal line. */
+const QUIET = 'ml-1 text-ink-subtle underline underline-offset-2 hover:text-ink';
+
+/** "Manage renewal": the renewal as a fact, and the one Stop button. */
+function ManageRenewal({ open, onClose, onStop, title, fact }: { open: boolean; onClose: () => void; onStop: () => void; title: string; fact: string }) {
+  const locale = useLocale();
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t(locale, 'manage_renewal')}
+      size="sm"
+      footer={
+        <div className="flex w-full items-center justify-between gap-2">
+          <Button type="button" variant="danger" onClick={onStop}>
+            {t(locale, 'stop_renewal')}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t(locale, 'close')}
+          </Button>
+        </div>
+      }
+    >
+      <p className="text-sm text-ink">{title}</p>
+      <p className="mt-1 text-sm text-ink-subtle">{fact}</p>
+    </Dialog>
+  );
+}
+
 export function Renewals({ items }: { items: MyRenewal[] }) {
   const locale = useLocale();
   if (!items.length) return null;
@@ -61,6 +100,7 @@ function RenewalRow({ r }: { r: MyRenewal }) {
   const locale = useLocale();
   const day = dayIn(locale);
   const [confirm, setConfirm] = useState<'stop' | 'resume' | null>(null);
+  const [managing, setManaging] = useState(false);
   const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,14 +148,6 @@ function RenewalRow({ r }: { r: MyRenewal }) {
                 {t(locale, 'add_or_change')}
               </Button>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirm(r.stops_at_period_end ? 'resume' : 'stop')}
-            >
-              {r.stops_at_period_end ? t(locale, 'resume_renewal') : t(locale, 'stop_renewal')}
-            </Button>
           </div>
         )}
       </div>
@@ -127,6 +159,11 @@ function RenewalRow({ r }: { r: MyRenewal }) {
             : r.stops_at_period_end && r.renews_at
               ? t(locale, 'renew_stops', { date: day(r.renews_at, true) })
               : renewsLine(locale, day, r.renews_at, n)}
+        {!r.managed_by_community && !r.unavailable && r.renews_at && (
+          <button type="button" className={QUIET} onClick={() => (r.stops_at_period_end ? setConfirm('resume') : setManaging(true))}>
+            {r.stops_at_period_end ? t(locale, 'resume_renewal') : t(locale, 'manage_renewal')}
+          </button>
+        )}
       </p>
       {/* The card renewals are charged to — changed here, not on Stripe (P4). */}
       {!r.managed_by_community && !r.unavailable && r.renews_at && !r.stops_at_period_end && <CardLine memberId={r.member_id} />}
@@ -141,6 +178,16 @@ function RenewalRow({ r }: { r: MyRenewal }) {
           onClose={() => setChanging(false)}
         />
       )}
+      <ManageRenewal
+        open={managing}
+        onClose={() => setManaging(false)}
+        onStop={() => {
+          setManaging(false);
+          setConfirm('stop');
+        }}
+        title={`${r.community} · ${r.tier}`}
+        fact={renewsLine(locale, day, r.renews_at, n)}
+      />
       <ConfirmDialog
         open={confirm !== null}
         onCancel={() => setConfirm(null)}
@@ -190,6 +237,7 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
   const locale = useLocale();
   const day = dayIn(locale);
   const [confirm, setConfirm] = useState<'stop' | 'resume' | null>(null);
+  const [managing, setManaging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const what = r.products.join(', ') || t(locale, 'this_subscription');
@@ -228,11 +276,6 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
           <div className="text-sm text-ink">{what}</div>
           <div className="text-xs text-ink-muted">{r.community}</div>
         </div>
-        {!r.unavailable && r.renews_at && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => setConfirm(r.stops_at_period_end ? 'resume' : 'stop')}>
-            {r.stops_at_period_end ? t(locale, 'resume_renewal') : t(locale, 'stop_renewal')}
-          </Button>
-        )}
       </div>
       <p className="mt-1 text-xs text-ink-subtle">
         {r.unavailable
@@ -240,8 +283,23 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
           : r.stops_at_period_end && r.renews_at
             ? t(locale, 'renew_stops_product', { date: day(r.renews_at, true) })
             : renewsLine(locale, day, r.renews_at, n)}
+        {!r.unavailable && r.renews_at && (
+          <button type="button" className={QUIET} onClick={() => (r.stops_at_period_end ? setConfirm('resume') : setManaging(true))}>
+            {r.stops_at_period_end ? t(locale, 'resume_renewal') : t(locale, 'manage_renewal')}
+          </button>
+        )}
       </p>
       {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
+      <ManageRenewal
+        open={managing}
+        onClose={() => setManaging(false)}
+        onStop={() => {
+          setManaging(false);
+          setConfirm('stop');
+        }}
+        title={`${what} · ${r.community}`}
+        fact={renewsLine(locale, day, r.renews_at, n)}
+      />
       <ConfirmDialog
         open={confirm !== null}
         onCancel={() => setConfirm(null)}

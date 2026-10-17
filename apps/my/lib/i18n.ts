@@ -151,13 +151,15 @@ const CATALOG = {
     de: 'Abonnieren', // MT
     fr: 'S’abonner', // MT
   },
-  shop_stop_in_purchases: {
-    en: 'Stop renewal in Purchases',
-    nl: 'Verlenging stoppen bij Aankopen',
-    es: 'Detener la renovación en Compras', // MT
-    pt: 'Parar a renovação em Compras', // MT
-    de: 'Verlängerung unter Käufe beenden', // MT
-    fr: 'Arrêter le renouvellement dans Achats', // MT
+  // The plain fact on a renewing product you have (2026-10-17): no link to
+  // stopping from the shop, that lives in Purchases.
+  shop_renews: {
+    en: 'Renews automatically',
+    nl: 'Wordt automatisch verlengd',
+    es: 'Se renueva automáticamente', // MT
+    pt: 'Renova automaticamente', // MT
+    de: 'Verlängert sich automatisch', // MT
+    fr: 'Se renouvelle automatiquement', // MT
   },
   shop_empty_title: {
     en: 'Nothing on offer right now',
@@ -4110,6 +4112,15 @@ const CATALOG = {
     pt: 'Nada de volta depois de {date}.', // MT
     de: 'Nach dem {date} nichts mehr zurück.', // MT
     fr: 'Aucun remboursement après le {date}.', // MT
+  },
+  // Purchases: the one quiet way into stopping a renewal (2026-10-17).
+  manage_renewal: {
+    en: 'Manage renewal',
+    nl: 'Verlenging beheren',
+    es: 'Gestionar renovación', // MT
+    pt: 'Gerir renovação', // MT
+    de: 'Verlängerung verwalten', // MT
+    fr: 'Gérer le renouvellement', // MT
   },
 } satisfies Record<string, I18nEntry>;
 
