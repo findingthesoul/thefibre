@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.272.1] — 2026-10-17
+
+### Test only: the cancellation test no longer leaves a purchase behind each run
+
+- Since refund slice 3a, `thread-cancellation.int.test.ts` made a real card
+  refund in its PERMANENT fixture workspace. A refund now issues a credit note
+  that can never be deleted, so each run left a purchase and its note there.
+- The money is `refund-part.int.test.ts`'s: real Stripe TEST in a throwaway
+  workspace, which takes its notes with it. This test now records
+  `refundPart` and pins the route's half: approving calls it ONCE, for this
+  purchase, this request and the amount paid. Its cleanup is back to
+  asserting nothing is left.
+- Two runs before this change (2026-10-17) left a purchase + note each in
+  `int-cancellation-fixtures`. They stay, as issued money records do.
+
 ## [1.272.0] — 2026-10-17
 
 ### Refund rules, slice 3a: refunds follow the rule — part of a card payment back, with its credit note (API + Thread 4.23.0)

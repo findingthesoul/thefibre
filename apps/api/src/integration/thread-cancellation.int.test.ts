@@ -34,6 +34,22 @@ vi.mock('../lib/email/client.js', async (orig) => ({
 }));
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' as Stripe.LatestApiVersion });
+
+// THE MONEY IS refund-part.int.test.ts's (a throwaway workspace, real Stripe
+// TEST): the refund, the fee, the credit note, the purchase turning
+// refunded. Here the route's half is pinned — that approving calls refundPart
+// ONCE, for this purchase, this request and the amount — through a recorder.
+// A real refund here would leave an issued credit note, which can never be
+// deleted, and so a purchase per run in this PERMANENT workspace (the
+// coordinator, 2026-10-17: keep it clean).
+const refundCalls: { purchaseId: string; amountCents: number; cancellationRequestId: string | null }[] = [];
+vi.mock('../lib/partial-refund.js', async (orig) => ({
+  ...(await orig<typeof import('../lib/partial-refund.js')>()),
+  refundPart: vi.fn(async (a: { purchaseId: string; amountCents: number; cancellationRequestId: string | null }) => {
+    refundCalls.push({ purchaseId: a.purchaseId, amountCents: a.amountCents, cancellationRequestId: a.cancellationRequestId });
+    return { ok: true, refunded_cents: a.amountCents, note: { id: 'n1', number: 'TEST-CN-01' }, purchase_refunded: true, platform_fee_refunded_cents: 100 };
+  }),
+}));
 const tag = randomUUID().slice(0, 6);
 let app: Hono;
 let ws = '';
@@ -144,12 +160,7 @@ afterAll(async () => {
     thread: ((await service.from('thread_thread').select('id').eq('id', threadId)).data ?? []).length,
     purchases: ((await service.from('purchase').select('id').in('id', [places.alice?.purchase, places.bob?.purchase].filter(Boolean) as string[])).data ?? []).length,
   };
-  // Alice's card purchase STAYS (refund rules slice 3a): its refund left a
-  // credit note, an issued money record that cannot be deleted, so neither
-  // can the purchase under it. This workspace is permanent (activity pins
-  // it), so one purchase + its note per run remain here, by design.
-  expect(left).toEqual({ requests: 0, thread: 0, purchases: 1 });
-  expect((await service.from('purchase_credit_note').select('id').eq('purchase_id', places.alice!.purchase!)).data).toHaveLength(1);
+  expect(left).toEqual({ requests: 0, thread: 0, purchases: 0 });
 }, 180_000);
 
 describe('the participant asks', () => {
@@ -211,9 +222,10 @@ describe('the organiser decides', () => {
     expect(await enrolmentStatus(places.alice.enr)).toBe('enrolled');
   });
 
-  it('two approvals at once: one wins, the place is dropped, and the card is refunded ONCE through Reimburse', async () => {
+  it('two approvals at once: one wins, the place is dropped, and the card is refunded ONCE (refundPart)', async () => {
     const pending = (await requestsFor(places.alice.te)).find((r) => r.status === 'pending')!;
     sent.length = 0;
+    refundCalls.length = 0;
     const [a, b] = await Promise.all([
       call(`/thread/cancellation-requests/${pending.id}/approve`, organiser, { method: 'POST', body: { refund: true } }),
       call(`/thread/cancellation-requests/${pending.id}/approve`, organiser, { method: 'POST', body: { refund: true } }),
@@ -223,11 +235,8 @@ describe('the organiser decides', () => {
     expect(winner).toMatchObject({ refunded_cents: 3500, refund_error: null });
 
     expect(await enrolmentStatus(places.alice.enr)).toBe('dropped');
-    const refunds = await stripe.refunds.list({ payment_intent: places.alice.pi! }, { stripeAccount: account });
-    expect(refunds.data).toHaveLength(1);
-    expect(refunds.data[0]!.amount).toBe(3500);
-    expect((await service.from('purchase').select('status').eq('id', places.alice.purchase!).single()).data!.status).toBe('refunded');
-    expect((await service.from('thread_enrolment').select('payment_status').eq('id', places.alice.te).single()).data!.payment_status).toBe('refunded');
+    // ONE refund, for this purchase, this request, everything that was paid.
+    expect(refundCalls).toEqual([{ purchaseId: places.alice.purchase!, amountCents: 3500, cancellationRequestId: pending.id }]);
     expect((await requestsFor(places.alice.te)).find((r) => r.id === pending.id)).toMatchObject({ status: 'approved', refunded_cents: 3500 });
 
     expect(sent).toHaveLength(1);
