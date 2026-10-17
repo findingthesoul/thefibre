@@ -27,7 +27,7 @@ describe('owner-rooted public URLs go through publicOriginFor', () => {
     // new bare call has to be argued for here, not just added (Meet's chat,
     // 2026-10-06).
     const bare = [...src.matchAll(/\$\{meetAppUrl\(\)\}\/([a-z-]+)/g)].map((m) => m[1]).sort();
-    expect(bare).toEqual(['bookings', 'bookings', 'invite', 'invite']);
+    expect(bare).toEqual(['bookings', 'invite', 'invite']);
   });
 
   it('routes/thread.ts builds no `${threadAppUrl()}/${…}` URL', () => {

@@ -88,6 +88,18 @@ import { bookingIcalUid, bookingInviteAttachment, bookingOrganizer } from '../li
 import { isManageToken, manageQuery, manageToken } from '../lib/meet-manage-token.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
+import { platformEmailLocale } from '../lib/email/platform-i18n.js';
+import {
+  approvalNeededHost,
+  bookingDeclinedInvitee,
+  meetAccessInvite,
+  meetMoney,
+  paymentDueInvitee,
+  requestExpiredHost,
+  requestExpiredInvitee,
+  teamInvite,
+  teamInviteReminder,
+} from '../lib/email/meet-lifecycle-templates.js';
 import {
   bioToHtml,
   bioToPlain,
@@ -99,7 +111,7 @@ import {
 } from '@thefibre/shared';
 // Its own subpath, as thread.ts imports it: the index does not re-export it.
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
-import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-link.js';
+import { createMeetPaymentLink } from '../lib/meet-payment-link.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
@@ -3312,19 +3324,18 @@ meetRoutes.post('/internal-team', async (c) => {
         .select('full_name, email')
         .eq('id', ctx.userId)
         .single();
-      const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
-      const signInUrl = appUrl('fibre-platform', process.env);
       const sender9 = await meetSender(ctx.workspaceId);
+      const m = meetAccessInvite(await platformEmailLocale(u.email), {
+        inviterName: inviter?.full_name ?? inviter?.email ?? null,
+        email: u.email,
+        signInUrl: appUrl('fibre-platform', process.env),
+      });
       await sendEmail({
         ...sender9,
         to: u.email,
-        subject: `${inviterName} invited you to ${MEET.name}`,
-        text: `${inviterName} added you to their ${PLATFORM.name} workspace and granted you access to ${MEET.name}.\n\nSign in at ${signInUrl} (using ${u.email}) to start using ${MEET.shortName}.\n\n${emailSignoff()}`,
-        html: await meetEmailHtml(
-          ctx.workspaceId,
-          'Invitation',
-          `<p><strong>${inviterName}</strong> invited you to ${MEET.name}.</p><p><a href="${signInUrl}">Sign in to ${PLATFORM.name}</a> using <strong>${u.email}</strong>.</p>`,
-        ),
+        subject: m.subject,
+        text: m.text,
+        html: await meetEmailHtml(ctx.workspaceId, m.title, m.bodyHtml),
       });
     } catch (e) {
       console.error('[internal-team] invite email failed (non-fatal)', e);
@@ -4739,7 +4750,7 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
   if (!mt || !hostRow) return;
 
   const hostTz = hostRow.timezone ?? 'UTC';
-  const hostName = hostUser?.full_name ?? hostRow.slug ?? 'your host';
+  const hostName = hostUser?.full_name ?? hostRow.slug ?? null;
   const hostEmail = hostUser?.email ?? null;
   const starts = new Date(booking.starts_at);
   const when = formatWhen(starts, hostTz);
@@ -4749,20 +4760,28 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
   const askAgain = `${await publicOriginFor('fibre-meet', hostRow.slug ?? null)}/${encodeURIComponent(hostRow.slug ?? '')}/${encodeURIComponent(
     mt.slug ?? '',
   )}?reschedule=${encodeURIComponent(booking.id)}${manageQuery(await bookingManageToken(booking.id), '&')}`;
-  const first = booking.invitee_name.split(' ')[0] ?? '';
+  // Each side in its own language (lib/email/meet-lifecycle-templates.ts).
+  const locales = await bookingLocales({
+    meetingTypeId: booking.meeting_type_id,
+    hostEmail,
+    inviteeEmail: booking.invitee_email,
+  });
 
   try {
     const sender = await meetSender(booking.workspace_id);
+    const m = requestExpiredInvitee(locales.invitee, {
+      inviteeName: booking.invitee_name,
+      hostName,
+      meeting: mt.name,
+      when,
+      askAgainUrl: askAgain,
+    });
     await sendEmail({
       ...sender,
       to: booking.invitee_email,
-      subject: `Your request expired: ${mt.name}`,
-      text: `Hi ${first},\n\n${hostName} did not answer your request for ${mt.name} (${when}), so it has expired and the time is free again.\n\nYou can ask for another time: ${askAgain}\n\n${emailSignoff()}`,
-      html: await meetEmailHtml(
-        booking.workspace_id,
-        'Your request expired',
-        `<p>Hi ${escapeHtml(first)},</p><p>${escapeHtml(hostName)} did not answer your request for <strong>${escapeHtml(mt.name)}</strong> (${escapeHtml(when)}), so it has expired and the time is free again.</p><p><a href="${askAgain}">Ask for another time →</a></p>`,
-      ),
+      subject: m.subject,
+      text: m.text,
+      html: await meetEmailHtml(booking.workspace_id, m.title, m.bodyHtml),
       replyTo: hostEmail ?? sender.replyTo,
     });
   } catch (e) {
@@ -4772,16 +4791,19 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
   if (hostEmail) {
     try {
       const sender = await meetSender(booking.workspace_id);
+      const m = requestExpiredHost(locales.host, {
+        inviteeName: booking.invitee_name,
+        inviteeEmail: booking.invitee_email,
+        meeting: mt.name,
+        when,
+        askAgainUrl: askAgain,
+      });
       await sendEmail({
         ...sender,
         to: hostEmail,
-        subject: `Expired without an answer: ${mt.name} — ${booking.invitee_name}`,
-        text: `${booking.invitee_name} (${booking.invitee_email}) asked for ${mt.name} on ${when}. The request was not answered, so it has expired and the time is free again.\n\nIf you still want it, they can be asked to pick a time: ${askAgain}\n\n${emailSignoff()}`,
-        html: await meetEmailHtml(
-          booking.workspace_id,
-          'A request expired',
-          `<p><strong>${escapeHtml(booking.invitee_name)}</strong> (${escapeHtml(booking.invitee_email)}) asked for <strong>${escapeHtml(mt.name)}</strong> on ${escapeHtml(when)}.</p><p>It was not answered, so it has expired and the time is free again.</p><p><a href="${askAgain}">Pick a time with them →</a></p>`,
-        ),
+        subject: m.subject,
+        text: m.text,
+        html: await meetEmailHtml(booking.workspace_id, m.title, m.bodyHtml),
         replyTo: booking.invitee_email,
       });
     } catch (e) {
@@ -4882,24 +4904,22 @@ async function runApprovalRequestSideEffects(
       { bookingId, hostId: booking.host_id },
     );
   } else {
-    const movedText = moved
-      ? `\n\nThis request was moved. It was ${formatWhen(moved, hostTz)}.`
-      : '';
-    const movedHtml = moved
-      ? `<p style="color:#525252;">Moved from ${escapeHtml(formatWhen(moved, hostTz))}.</p>`
-      : '';
     try {
       const sender = await meetSender(booking.workspace_id);
+      const m = approvalNeededHost(locales.host, {
+        inviteeName: booking.invitee_name,
+        inviteeEmail: booking.invitee_email,
+        meeting: mt.name,
+        when: formatWhen(starts, hostTz),
+        movedFromWhen: moved ? formatWhen(moved, hostTz) : null,
+        reviewUrl: `${meetAppUrl()}/bookings`,
+      });
       await sendEmail({
         ...sender,
         to: hostEmail,
-        subject: `${moved ? 'Approval needed (moved)' : 'Approval needed'}: ${mt.name} — ${booking.invitee_name}`,
-        text: `${booking.invitee_name} (${booking.invitee_email}) requested ${mt.name} for ${formatWhen(starts, hostTz)}.${movedText}\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
-        html: await meetEmailHtml(
-          booking.workspace_id,
-          moved ? 'Approval needed (moved)' : 'Approval needed',
-          `<p><strong>${escapeHtml(booking.invitee_name)}</strong> (${escapeHtml(booking.invitee_email)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p>${escapeHtml(formatWhen(starts, hostTz))}</p>${movedHtml}<p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
-        ),
+        subject: m.subject,
+        text: m.text,
+        html: await meetEmailHtml(booking.workspace_id, m.title, m.bodyHtml),
         replyTo: booking.invitee_email,
       });
       hostNotified = true;
@@ -5595,22 +5615,25 @@ meetRoutes.post('/bookings', async (c) => {
       publicPath: `/${hostRow?.slug ?? ''}/${mt.slug}`,
     });
     if (payUrl && d.notify !== false) {
-      const amount = new Intl.NumberFormat('en-GB', {
-        style: 'currency',
-        currency: (mt.price_currency ?? 'EUR').toUpperCase(),
-      }).format((bookingVat?.gross_cents ?? mt.price_cents!) / 100);
       try {
         const sender = await meetSender(mt.workspace_id);
+        const { invitee: L } = await bookingLocales({
+          meetingTypeId: mt.id,
+          hostEmail: hostUser?.email ?? null,
+          inviteeEmail: d.invitee_email,
+        });
+        const m = paymentDueInvitee(L, {
+          inviteeName: d.invitee_name,
+          meeting: mt.name,
+          amount: meetMoney(L, bookingVat?.gross_cents ?? mt.price_cents!, mt.price_currency ?? 'EUR'),
+          payUrl,
+        });
         await sendEmail({
           ...sender,
           to: d.invitee_email,
-          subject: `Payment for ${mt.name}`,
-          text: `Hi ${d.invitee_name.split(' ')[0] ?? ''},\n\n${amount} is due for ${mt.name}.\n\nPay online: ${payUrl}\n\n${emailSignoff()}`,
-          html: await meetEmailHtml(
-            mt.workspace_id,
-            'Payment',
-            `<p>Hi ${escapeHtml(d.invitee_name.split(' ')[0] ?? '')},</p><p><strong>${escapeHtml(amount)}</strong> is due for ${escapeHtml(mt.name)}.</p>${meetPayButtonHtml(payUrl)}`,
-          ),
+          subject: m.subject,
+          text: m.text,
+          html: await meetEmailHtml(mt.workspace_id, m.title, m.bodyHtml),
           replyTo: hostUser?.email ?? sender.replyTo,
         });
       } catch (e) {
@@ -5793,22 +5816,25 @@ meetRoutes.post('/bookings/:id/reject', async (c) => {
     ? booking.meeting_type[0]
     : booking.meeting_type;
   if (mt && hostRow) {
-    const hostName = hostUser?.full_name ?? hostRow.slug ?? 'your host';
-    const reasonLine = body.data.reason
-      ? `\n\nNote from ${hostName}: ${body.data.reason}\n`
-      : '';
     try {
       const sender12 = await meetSender(ctx.workspaceId);
+      const { invitee: L } = await bookingLocales({
+        meetingTypeId: booking.meeting_type_id,
+        hostEmail: hostUser?.email ?? null,
+        inviteeEmail: booking.invitee_email,
+      });
+      const m = bookingDeclinedInvitee(L, {
+        inviteeName: booking.invitee_name,
+        hostName: hostUser?.full_name ?? hostRow.slug ?? null,
+        meeting: mt.name,
+        note: body.data.reason ?? null,
+      });
       await sendEmail({
         ...sender12,
         to: booking.invitee_email,
-        subject: `Declined: ${mt.name}`,
-        text: `Hi ${booking.invitee_name.split(' ')[0] ?? ''},\n\n${hostName} was unable to confirm your booking request for ${mt.name}.${reasonLine}\n${emailSignoff()}`,
-        html: await meetEmailHtml(
-          ctx.workspaceId,
-          'Booking declined',
-          `<p>Hi ${escapeHtml(booking.invitee_name.split(' ')[0] ?? '')},</p><p>${escapeHtml(hostName)} was unable to confirm your booking request for <strong>${escapeHtml(mt.name)}</strong>.</p>${body.data.reason ? `<p><em>${escapeHtml(body.data.reason)}</em></p>` : ''}`,
-        ),
+        subject: m.subject,
+        text: m.text,
+        html: await meetEmailHtml(ctx.workspaceId, m.title, m.bodyHtml),
         replyTo: hostUser?.email ?? sender12.replyTo,
       });
     } catch (e) {
@@ -6245,34 +6271,21 @@ meetRoutes.post('/teams/:id/members', async (c) => {
         .select('full_name, email')
         .eq('id', ctx.userId)
         .single();
-      const teamName = team?.name ?? 'a team';
-      const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
-      const acceptUrl = `${meetAppUrl()}/invite/${inviteToken}`;
-      const signInUrl = appUrl('fibre-platform', process.env);
       const sender13 = await meetSender(ctx.workspaceId);
+      const m = teamInvite(await platformEmailLocale(u.email), {
+        inviterName: inviter?.full_name ?? inviter?.email ?? null,
+        teamName: team?.name ?? null,
+        email: u.email,
+        acceptUrl: `${meetAppUrl()}/invite/${inviteToken}`,
+      });
       await sendEmail({
         ...sender13,
         to: u.email,
-        subject: `${inviterName} invited you to ${teamName} on ${PLATFORM.name}`,
-        text: `${inviterName} invited you to the team "${teamName}" on ${MEET.name}.
-
-Accept the invite: ${acceptUrl}
-
-You'll be asked to sign in with Google (using ${u.email}) and then taken to a page to accept. After accepting you'll start receiving bookings.
-
-${emailSignoff()}`,
+        subject: m.subject,
+        text: m.text,
         // Same shell as the rest (2026-09-23): this one was a hand-built
         // card — styled, but with no logo and its own footer.
-        html: await meetEmailHtml(
-          ctx.workspaceId,
-          "You've been invited",
-          `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(inviterName)} added you to ${escapeHtml(teamName)}.</h1>
-<p style="margin-top:18px;font-size:14px;line-height:1.6;color:#404040;">Open the link below to review and accept. You'll be asked to sign in with Google.</p>
-<p style="margin-top:24px;"><a href="${acceptUrl}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:6px;">Accept invite</a></p>
-<p style="margin-top:18px;font-size:12px;color:#737373;">Use your Google account for <strong>${escapeHtml(u.email)}</strong>.</p>
-<p style="margin-top:24px;font-size:11px;color:#a3a3a3;word-break:break-all;">Or copy this link: ${acceptUrl}</p>
-<p style="margin-top:18px;font-size:11px;color:#a3a3a3;">If you didn't expect this, just ignore the email.</p>`,
-        ),
+        html: await meetEmailHtml(ctx.workspaceId, m.title, m.bodyHtml),
       });
     } catch (e) {
       console.error('[teams/members] invite email failed (non-fatal)', e);
@@ -6431,16 +6444,13 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
         .eq('id', id)
         .single();
       const sender14 = await meetSender(ctx.workspaceId);
+      const m = teamInviteReminder(await platformEmailLocale(u.email), { teamName: team?.name ?? null, acceptUrl });
       await sendEmail({
         ...sender14,
         to: u.email,
-        subject: `Reminder: accept your invite to ${team?.name ?? 'a team'}`,
-        text: `Accept the invite: ${acceptUrl}\n\n${emailSignoff()}`,
-        html: await meetEmailHtml(
-          ctx.workspaceId,
-          'Invitation reminder',
-          `<p>Open <a href="${acceptUrl}">${acceptUrl}</a> to accept the invite.</p>`,
-        ),
+        subject: m.subject,
+        text: m.text,
+        html: await meetEmailHtml(ctx.workspaceId, m.title, m.bodyHtml),
       });
     } catch (e) {
       console.error('[teams/resend-invite] email failed (non-fatal)', e);

@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.276.1] — 2026-10-17
+
+### Meet: the last eight hand-written English mails speak the recipient's language (API)
+
+- Expired request (to the guest and to the host), the host's approval ask
+  (and its "moved" form), declined, payment due, the Meet-access invite, and
+  the team invite with its reminder. Each was written inline in English
+  while the booking mails beside it spoke six languages. A Dutch guest got
+  "Your request expired". They now render from
+  `lib/email/meet-lifecycle-templates.ts` with keys in
+  `meet-booking-i18n.ts` (6 languages; non-English marked MT).
+- The language comes from the resolvers the booking mails already use.
+  `bookingLocales` covers a booking's guest or host. `platformEmailLocale`
+  covers a colleague (Meet access, team invites). Nothing picks its own.
+- Also fixed on the way:
+  - The Meet-access invite put the inviter's name and email unescaped into
+    its html.
+  - The "your host / a teammate / a team" fallbacks and the payment amount
+    were English whatever the language. The amount is now in the reader's
+    own format ("€ 60,00").
+  - `meetPayButtonHtml` (English, one caller) is gone; the button text
+    lives in the catalog.
+- Not yet: the dates inside every Meet mail still read "Monday, 2 November
+  2026 at 10:00 CET" in any language. That's the next release.
+- Tested: `meet-lifecycle-templates.test.ts` (32). Every mail is rendered
+  in en and nl, with no placeholders left, none of the old English phrases
+  in nl, the English subjects unchanged, money in the reader's format, no
+  "Hi ," without a name, and escaped html. It ran under TZ=UTC, Amsterdam
+  and Los Angeles. The bare-URL guard now counts one `/bookings` (text and
+  html share it). apps/api unit 1290/1290, typecheck clean.
+
 ## [1.276.0] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 1, the migration: who you see is who you organise for (database)

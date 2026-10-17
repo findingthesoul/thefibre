@@ -113,9 +113,3 @@ export async function createMeetPaymentLink(p: {
     return null;
   }
 }
-
-/** Pay-online button for the booking email, matching the Thread/Membership shape. */
-export function meetPayButtonHtml(url: string): string {
-  return `<p style="margin:24px 0 0;"><a href="${url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Pay online</a></p>
-    <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">Prefer a bank transfer? Just ignore the button — the invoice stands.</p>`;
-}
