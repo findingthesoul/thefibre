@@ -113,6 +113,14 @@ case "$TARGET" in
   *) usage ;;
 esac
 
+# One deploy per target at a time (2026-10-17: batch 42 deployed production
+# twice at once). Inside batch-prod.sh this lock is already the sitting's and
+# the inherited token lets this run through.
+# shellcheck source=lib/run-lock.sh
+. "$(dirname "$0")/lib/run-lock.sh"
+RUN_LOCK_ARGS="$TARGET"
+run_lock_acquire "deploy-api-$TARGET" || exit 75
+
 PROBE=""
 NO_VISIBLE=0
 BEHIND_AUTH=""

@@ -82,6 +82,32 @@ before touching anything, and records `$USER` in what it deploys. Any terminal
 here could already consume a production clearance — today he types
 `RUNWAY_SESSION=controller` himself — so this widens nothing.
 
+### One sitting at a time
+
+On 2026-10-17 batch 42 ran TWICE at once: two copies of the command were
+open in two terminals, Run was pressed on both, and both reached `fly
+deploy` to production. Every gate passed for each, because each gate asks
+about the world, not about a twin beside it. Since then `batch-prod.sh`
+takes a lock before anything else (`scripts/lib/run-lock.sh`: an atomic
+`mkdir` in the shared git dir, `runway/locks/`), and so does every
+`deploy-api.sh <target>`. A second run is refused with the first one's pid,
+terminal, user and start time, and nothing runs. The sitting's own API
+deploy inherits its token and goes through; a separate `deploy-api.sh prod`
+during a sitting does not. A lock whose holder is gone (the pid no longer
+exists or now runs something else) is taken over, and says so. Only if you
+are sure the other run is dead: `rm -rf "$(git rev-parse --git-common-dir)/runway/locks/<name>"`.
+
+The lock protects a sitting only when the copy of `batch-prod.sh` being run
+has it: the main checkout runs the script from its own working tree, so a
+checkout still on an older main runs an older script.
+
+**And it runs from a copy of itself.** The sitting fast-forwards the very
+checkout the script lives in, and bash reads a script as it goes: a sitting
+that pulled in a new `batch-prod.sh` used to carry on reading whatever bytes
+now sat at its position in the changed file. Since 2026-10-17 it first copies
+itself to a temp file and execs that (`BATCH_PROD_SELF` keeps the real path),
+so the run in flight never changes under it.
+
 ### Preflight gates, and why they are not first
 
 Conditions about production DATA that must hold before production CODE goes

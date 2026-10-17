@@ -350,6 +350,8 @@ describe('a dry run, all the way through', () => {
       cpSync(join(REPO, 'scripts', f), join(dir, 'scripts', f));
       chmodSync(join(dir, 'scripts', f), 0o755);
     }
+    // The one-at-a-time lock batch-prod.sh sources (2026-10-17).
+    cpSync(join(REPO, 'scripts/lib'), join(dir, 'scripts/lib'), { recursive: true });
     writeFileSync(join(dir, 'supabase/migrations/20260101000000_one.sql'), '-- one\n');
     writeFileSync(
       join(dir, 'apps/api/src/lib/zoom-pending.ts'),

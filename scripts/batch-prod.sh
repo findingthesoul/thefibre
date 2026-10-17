@@ -43,7 +43,31 @@
 #   api      — always redeploys; wasteful, never wrong, and it is last.
 #
 set -euo pipefail
-cd "$(dirname "$0")/.."
+
+# RUN FROM A COPY (2026-10-17). This script fast-forwards the very checkout it
+# lives in (step "Checkout"), and bash reads a script as it runs: a sitting
+# that pulls in a NEW batch-prod.sh would carry on executing whatever bytes
+# now sit at its read position in the changed file. So, before anything else,
+# it copies itself to a temp file and execs that; the copy cannot change under
+# it. BATCH_PROD_SELF carries the real path, so everything relative to the
+# repository still resolves, and stops the copy from copying itself again.
+if [ -z "${BATCH_PROD_SELF:-}" ]; then
+  BATCH_PROD_SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  BATCH_PROD_COPY="$(mktemp "${TMPDIR:-/tmp}/batch-prod.XXXXXX")"
+  cp "$BATCH_PROD_SELF" "$BATCH_PROD_COPY"
+  export BATCH_PROD_SELF BATCH_PROD_COPY
+  exec bash "$BATCH_PROD_COPY" "$@"
+fi
+SELF="$BATCH_PROD_SELF"
+SCRIPTS_DIR="$(dirname "$SELF")"
+trap 'rm -f "${BATCH_PROD_COPY:-}"' EXIT
+# A test seam: hold here until a file exists, so a test can change the file
+# on disk while this run is in flight (scripts/batch-prod.test.mjs).
+if [ -n "${BATCH_PROD_TEST_HOLD:-}" ]; then
+  : > "$BATCH_PROD_TEST_HOLD.ready"
+  while [ ! -e "$BATCH_PROD_TEST_HOLD" ]; do sleep 0.1; done
+fi
+cd "$SCRIPTS_DIR/.."
 
 # A way to ask, on its own, what production reports as applied. Useful before
 # a sitting ("is the schema already where I think it is?"), and it is how the
@@ -61,10 +85,10 @@ shift || true
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
-    *) echo "usage: $0 <sha> [--dry-run]" >&2; exit 2 ;;
+    *) echo "usage: $SELF <sha> [--dry-run]" >&2; exit 2 ;;
   esac
 done
-[ -n "$SHA" ] || { echo "usage: $0 <sha> [--dry-run]" >&2; exit 2; }
+[ -n "$SHA" ] || { echo "usage: $SELF <sha> [--dry-run]" >&2; exit 2; }
 
 # What the person typed, kept for the messages. Everything else uses the
 # resolved full sha.
@@ -104,7 +128,7 @@ say()  { printf '%s\n' "$*"; }
 # BATCH_PROD_LIST_CMD exists so a test can feed a fixture listing with a
 # local-only row, which is the case that must refuse and the one a live run
 # cannot produce on demand.
-migration_remote_versions() { "$0" --remote-migrations; }
+migration_remote_versions() { "$SELF" --remote-migrations; }
 step() { printf '\n── %s\n' "$*"; }
 # One line naming the step, and that nothing after it ran. A failure in the
 # middle of a production sitting is the moment to be unambiguous about how
@@ -112,6 +136,20 @@ step() { printf '\n── %s\n' "$*"; }
 fail() { printf '\nBATCH STOPPED at %s: %s\n   Nothing after this step ran.\n' "$1" "$2" >&2; exit 1; }
 
 # ── 0. The clearance ──────────────────────────────────────────────────────
+# ONE SITTING AT A TIME (2026-10-17): batch 42 ran twice at once from two
+# terminals and both reached `fly deploy`. The lock is taken before anything
+# else, and covers the API deploy too (deploy-api-prod), so a separate
+# deploy-api.sh prod cannot start in the middle of a sitting either. The
+# sitting's own deploy-api.sh inherits the token and goes through.
+# shellcheck source=lib/run-lock.sh
+. "$SCRIPTS_DIR/lib/run-lock.sh"
+if [ "$DRY" != 1 ]; then
+  RUN_LOCK_ARGS="$SHA_TYPED"
+  run_lock_acquire batch-prod || exit 75
+  run_lock_acquire deploy-api-prod || exit 75
+  trap 'run_lock_release_all; rm -f "${BATCH_PROD_COPY:-}"' EXIT
+fi
+
 step "Clearance"
 CL="$(./scripts/runway.sh clearance 2>/dev/null || true)"
 
@@ -390,7 +428,7 @@ fi
 step "API"
 WT=".claude/worktrees/batch-prod-$$"
 cleanup_wt() { git worktree remove --force "$WT" >/dev/null 2>&1 || true; }
-trap cleanup_wt EXIT
+trap 'cleanup_wt; run_lock_release_all; rm -f "${BATCH_PROD_COPY:-}"' EXIT
 
 if [ "$DRY" = 1 ]; then
   say "  would deploy the API to production from a detached worktree at ${SHA:0:8}"

@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.12] — 2026-10-17
+
+### Tooling: a production sitting, and an API deploy, run one at a time
+
+- Batch 42 ran twice at once from two terminals, and both copies reached
+  `fly deploy` to production. `scripts/lib/run-lock.sh` is a lock both
+  `batch-prod.sh` and `deploy-api.sh <target>` now take first: an atomic
+  `mkdir` under the shared git dir (`runway/locks/`), holding pid, terminal,
+  user, host, start time and arguments, removed on exit. A second run is
+  REFUSED, naming the first one's pid, terminal and age, and nothing runs. A
+  sitting holds the production API lock for its whole length, so a separate
+  `deploy-api.sh prod` cannot start mid-sitting, while the sitting's own
+  deploy inherits its token and goes through. A lock left by a holder that
+  died is recognised (the pid is gone, or now runs something else) and taken
+  over, with a line saying so.
+- **`batch-prod.sh` runs from a copy of itself.** A sitting fast-forwards
+  the checkout the script lives in, and bash reads a script as it goes, so a
+  sitting that pulled in a new `batch-prod.sh` could go on executing bytes of
+  a file that changed underneath it. It now copies itself to a temp file and
+  execs that before doing anything (`BATCH_PROD_SELF` carries the real path
+  and stops a second copy); the copy is removed on exit.
+- **Checked:** `scripts/run-lock.test.mjs`, 4, real bash processes in a
+  throwaway repo: a second run refused while the first holds the lock (with
+  its pid and terminal); the lock gone after a normal exit; a lock left by a
+  killed holder taken over; a child with the parent's token going through
+  and the lock released once. `scripts/batch-prod-reexec.test.mjs`, 2: the
+  file on disk replaced while a run is in flight, and the run carries on
+  unaffected; the negative control (no copy) is derailed by the same change.
+  The deploy-api and batch-prod sandbox tests copy the new library; all 134
+  script tests green. `docs/runway.md` "One
+  sitting at a time".
+- **Note:** the main checkout runs `batch-prod.sh` from its own working tree,
+  so the lock protects a sitting from the first one run on a checkout that
+  already has this commit.
+
 ## [1.277.11] — 2026-10-17
 
 ### my.thread → Next: a thread with no date and no sessions is shown, not "Nothing coming up" (my.thread 0.35.1)

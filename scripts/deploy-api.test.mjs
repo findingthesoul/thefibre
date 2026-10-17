@@ -29,6 +29,8 @@ function sandbox({ machines = 1 } = {}) {
   mkdirSync(join(dir, 'bin'));
   mkdirSync(join(dir, 'apps/api/src'), { recursive: true });
   cpSync(join(REPO, 'scripts/deploy-api.sh'), join(dir, 'scripts/deploy-api.sh'));
+  // The one-at-a-time lock it sources (2026-10-17).
+  cpSync(join(REPO, 'scripts/lib'), join(dir, 'scripts/lib'), { recursive: true });
   writeFileSync(join(dir, 'apps/api/src/server.ts'), '// fixture\n');
   writeFileSync(join(dir, 'fly.staging.toml'), "app = 'thefibre-api-staging'\n");
 
