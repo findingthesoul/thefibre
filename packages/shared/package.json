@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.277.20",
+  "version": "1.277.21",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -137,6 +137,10 @@
     "./thread-dates": {
       "types": "./dist/thread-dates.d.ts",
       "default": "./dist/thread-dates.js"
+    },
+    "./refund-rule": {
+      "types": "./dist/refund-rule.d.ts",
+      "default": "./dist/refund-rule.js"
     },
     "./thread-date-line": {
       "types": "./dist/thread-date-line.d.ts",

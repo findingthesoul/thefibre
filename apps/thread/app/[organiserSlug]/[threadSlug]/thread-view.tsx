@@ -8,6 +8,7 @@
 // stay thin so the render never forks.
 
 import { ENTITY } from '@thefibre/shared';
+import type { PublicRefundRule } from '@thefibre/shared/refund-rule';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import Link from 'next/link';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
@@ -81,6 +82,8 @@ export type PublicThreadDetail = {
     key_moment_count?: number;
     /** The seller's home VAT rate, or null (additive, 2026-10-16). */
     vat_home_pct?: number | null;
+    /** Additive (refund rules, slice 4): what cancelling gives back. */
+    refund_rule?: PublicRefundRule | null;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     is_preview?: boolean;
@@ -379,6 +382,7 @@ export function PublicThreadView({
           {/* Right: enrolment card */}
           <EnrolCard
             vatHomePct={thread.vat_home_pct ?? null}
+            refundRule={thread.refund_rule ?? null}
             organiserSlug={organiser.slug}
             organiserName={organiserName}
             threadSlug={thread.slug}

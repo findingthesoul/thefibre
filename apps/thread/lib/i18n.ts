@@ -397,6 +397,41 @@ const CATALOG = {
     de: 'Anmelden bis', // MT
     fr: "Inscrivez-vous jusqu'au", // MT
   },
+  // Refund rules, slice 4: what cancelling gives back, read before paying.
+  // "Up to and including" in every language, like signup_by: the date is the
+  // LAST day the percentage holds (@thefibre/shared/refund-rule).
+  refund_rule_title: {
+    en: 'If you cancel',
+    nl: 'Als je annuleert',
+    es: 'Si cancelas', // MT
+    pt: 'Se cancelar', // MT
+    de: 'Wenn du stornierst', // MT
+    fr: 'Si tu annules', // MT
+  },
+  refund_rule_until: {
+    en: 'Up to and including {date}: {pct}% back',
+    nl: 't/m {date}: {pct}% terug',
+    es: 'Hasta el {date} inclusive: se devuelve el {pct}%', // MT
+    pt: 'Até {date}, inclusive: {pct}% devolvido', // MT
+    de: 'Bis einschließlich {date}: {pct} % zurück', // MT
+    fr: "Jusqu'au {date} inclus : {pct} % remboursé", // MT
+  },
+  refund_rule_after: {
+    en: 'After that: nothing back',
+    nl: 'Daarna: niets terug',
+    es: 'Después: sin reembolso', // MT
+    pt: 'Depois disso: sem reembolso', // MT
+    de: 'Danach: keine Erstattung', // MT
+    fr: 'Ensuite : aucun remboursement', // MT
+  },
+  refund_rule_fee: {
+    en: '{fee} is kept on any refund.',
+    nl: 'Bij elke terugbetaling wordt {fee} ingehouden.',
+    es: 'De cada reembolso se retienen {fee}.', // MT
+    pt: 'Em cada reembolso são retidos {fee}.', // MT
+    de: 'Bei jeder Erstattung werden {fee} einbehalten.', // MT
+    fr: 'Sur chaque remboursement, {fee} sont retenus.', // MT
+  },
   enrolment_closed: {
     en: 'Enrolment is closed for this thread.',
     nl: 'Inschrijven is gesloten voor deze thread.',

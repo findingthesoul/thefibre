@@ -252,7 +252,10 @@ const PENDING = {
   embedListing: [],
   // Empty again: `vat_home_pct` (thread), the seven list-item fields and the
   // organiser page's `card_dates` were collected into SHAPES with batch 32.
-  thread: [],
+  // `refund_rule` (refund rules, slice 4, v1.27x, builder 4, 2026-10-17): the
+  // thread's rule as the enrol form says it, or null. COLLECT IT into
+  // SHAPES.thread the day the batch carrying it reaches production.
+  thread: ['refund_rule'],
   listItem: [],
   organiserPage: [],
 };

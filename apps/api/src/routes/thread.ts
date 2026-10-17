@@ -214,6 +214,7 @@ import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { TEMPLATE_ENGAGEMENT, TEMPLATE_THREAD, TEMPLATE_TICKET, carriedIn, carriedOut } from '../lib/thread-template-spec.js';
 import { allowsOrganiserMeetings, mintingAccount, propagateRoom, queueHostChange, sessionHosts, sessionRoom, threadHosts, threadRoom, threadTokenContext, type ThreadHost } from '../lib/main-facilitator.js';
 import { recordActivity } from '../lib/activity-log.js';
+import { publicRefundRule } from '../lib/refund-quote.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -7098,6 +7099,11 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       // Additive (2026-10-16): the seller's HOME rate, or null — the small
       // "€363 incl. 21% VAT" line under each price before a country is known.
       vat_home_pct: await homeVatPct({ workspaceId: thread.workspace_id as string, organiserUserId: threadOrganiserUserId }),
+      // Additive (refund rules, slice 4, 2026-10-17): what cancelling gives
+      // back, BEFORE paying — the thread's rule or the workspace default,
+      // each step with the instant it ends. Null = no rule (the organiser
+      // decides). Said by the enrol form (@thefibre/shared/refund-rule).
+      refund_rule: await publicRefundRule(thread.id as string),
       // Additive (thread dates part 3): the workspace's card choice, for the
       // card embed (data-* may override it on the page).
       card_dates: await workspaceCardDates(thread.workspace_id as string),

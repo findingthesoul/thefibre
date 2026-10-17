@@ -25,7 +25,13 @@ let threadId = '';
 let programId = '';
 const placeId = randomUUID();
 const DAY = 86_400_000;
-const start = new Date(Date.UTC(2027, 2, 1)); // 1 Mar 2027, 00:00 UTC
+// The thread starts at MIDNIGHT IN ITS OWN ZONE (Europe/Amsterdam, the
+// default), not UTC, since v1.272.3 (startInstant): 1 Mar 2027 00:00 CET is
+// 28 Feb 23:00Z. This said `Date.UTC(2027, 2, 1)` until v1.277.21: it was
+// written for slice 2, went red when v1.272.3 moved the start into the
+// thread's zone, and was not re-run then. The product's cutoff an hour
+// earlier is the right one; the test was wrong.
+const start = new Date('2027-02-28T23:00:00.000Z');
 const startsOn = '2027-03-01';
 
 const call = (method: string, path: string, body?: unknown) =>

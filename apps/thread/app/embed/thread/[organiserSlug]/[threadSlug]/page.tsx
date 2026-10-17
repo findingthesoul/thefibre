@@ -1,5 +1,6 @@
 import { ENTITY } from '@thefibre/shared';
 import { RichText } from '@thefibre/shared/ui/rich-text';
+import type { PublicRefundRule } from '@thefibre/shared/refund-rule';
 import { notFound } from 'next/navigation';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -57,6 +58,8 @@ type PublicThreadDetail = {
     key_moment_count?: number;
     /** The seller's home VAT rate, or null (additive, 2026-10-16). */
     vat_home_pct?: number | null;
+    /** Additive (refund rules, slice 4): what cancelling gives back. */
+    refund_rule?: PublicRefundRule | null;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     /** The shown price includes VAT (its cheapest ticket says so). */
@@ -273,6 +276,7 @@ export default async function EmbedThreadPage({
         <div className={enrolOnly ? 'mt-4' : 'mt-6 max-w-md'}>
           <EnrolCard
             vatHomePct={thread.vat_home_pct ?? null}
+            refundRule={thread.refund_rule ?? null}
             organiserSlug={organiser.slug}
             organiserName={organiserName}
             threadSlug={thread.slug}

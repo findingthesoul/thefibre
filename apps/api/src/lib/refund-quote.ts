@@ -23,6 +23,7 @@ import { adminClient } from '../db.js';
 import { invalidRule, refundFor, type RefundQuote, type RefundRule } from './refund-rules.js';
 import { loadThreadDates } from './thread-dates.js';
 import { zonedTimeToUtc } from './availability/timezone.js';
+import type { PublicRefundRule } from '@thefibre/shared/refund-rule';
 
 export type RuleSource = 'thread' | 'workspace' | null;
 
@@ -105,5 +106,33 @@ export async function quoteForPlace(enrolmentId: string, threadId: string, at: D
     next_pct: q.next_pct,
     rule_source: source,
     counted_at: at.toISOString(),
+  };
+}
+
+/**
+ * The rule as the PUBLIC thread payload carries it (refund rules, slice 4):
+ * the same rule (effectiveRefundRule) and the same start (threadStart) the
+ * refund itself counts from, with each step's end as an instant, so the
+ * enrol form can say "until <date>" in the thread's zone
+ * (@thefibre/shared/refund-rule). Null when no rule applies — the organiser
+ * decides, as before rules existed.
+ */
+export async function publicRefundRule(threadId: string): Promise<PublicRefundRule | null> {
+  const [{ rule }, start] = await Promise.all([effectiveRefundRule(threadId), threadStart(threadId)]);
+  return publicRuleFrom(rule, start);
+}
+
+/** Pure half of publicRefundRule, for the test that both sides agree. */
+export function publicRuleFrom(rule: RefundRule | null, start: Date | null): PublicRefundRule | null {
+  if (!rule || !rule.steps.length) return null;
+  return {
+    fee_cents: rule.fee_cents ?? 0,
+    steps: [...rule.steps]
+      .sort((a, b) => b.until_days_before - a.until_days_before)
+      .map((s) => ({
+        refund_pct: s.refund_pct,
+        until_days_before: s.until_days_before,
+        until: start ? new Date(start.getTime() - s.until_days_before * 86_400_000).toISOString() : null,
+      })),
   };
 }

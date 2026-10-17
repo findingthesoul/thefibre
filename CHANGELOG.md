@@ -6,6 +6,65 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.21] — 2026-10-17
+
+### Refund rules, slice 4: the rule is read BEFORE paying, on the thread page and in the enrol popup (API + Thread 4.24.0)
+
+- Above the pay button, for a paid place, under the heading "If you cancel":
+  "Up to and including 31 Oct 2026: 100% back / Up to and including 16 Nov
+  2026: 50% back / After that: nothing back / €5.00 is kept on any refund."
+  In Thread's six languages; in Dutch: "t/m 31 okt 2026: 100% terug … Bij
+  elke terugbetaling wordt € 5,00 ingehouden." The fee is in the reader's
+  locale (Intl currency): "€ 5,00" in Dutch, "5,00 €" in German, "€5.00" in
+  English. Nothing is said when no rule applies (the organiser decides, as
+  before rules existed).
+- **API, additive:** the public thread payload gains `refund_rule`, either
+  `{ fee_cents, steps: [{ refund_pct, until_days_before, until }] }` or null.
+  - It is the same rule and the same start the refund counts from
+    (`effectiveRefundRule`, `threadStart`), in `publicRefundRule`
+    (lib/refund-quote.ts).
+  - `until` is the instant the step ends.
+  - It is PENDING in `verify-public-api.mjs`: COLLECT it into SHAPES.thread the
+    day production serves it.
+- **One sentence, in shared:** `@thefibre/shared/refund-rule`
+  (`refundRuleLines`, `lastWholeDayBefore`) decides what is said, and each
+  app's catalog says it.
+  - "Until" means up to and including the LAST WHOLE DAY in the thread's zone
+    before the step ends, as my.thread's quote says it. One day early can only
+    under-promise.
+  - Dates are formatted like the card's.
+- **Two sides agree** (`refund-rule-public.test.ts`), across five starts: a
+  first day in Amsterdam (winter and summer) and New York, a key moment at
+  19:30 Amsterdam, one at 07:00 Tokyo. For every step:
+  - at the very end of the promised day, `refundFor` (the refund's own
+    arithmetic) still gives that step's percentage;
+  - by the end of the next day the step has ended.
+  The page never promises a day too many and is never more than one day
+  early.
+  The same file pins the nl and de words: the dates ("31 okt 2026",
+  "31. Okt. 2026") and the fee ("€ 5,00", "5,00 €").
+- **Where it shows:** the thread page and the thread embed (the popup).
+  - The organiser page's grid dialog reads the LIST payload, which has no
+    `refund_rule`. Adding it there would cost a rule lookup per thread in every
+    listing, so it is left for when the list needs it.
+- **A red test fixed: `refund-quote.int.test.ts` "counts the workspace
+  default at the date given (C)".** It expected the 100% step to end at
+  2027-01-30 00:00Z and got 2027-01-29 23:00Z.
+  - The PRODUCT is right. Since v1.272.3 a thread with no key moment starts
+    at midnight in its own zone (Amsterdam: 1 Mar 00:00 CET = 28 Feb 23:00Z),
+    so 30 days before it is 29 Jan 23:00Z.
+  - The test, written for slice 2, still assumed a UTC start and was not
+    re-run when v1.272.3 changed it. Its start is now the thread's own
+    midnight; 5/5.
+  - The public sentence this release adds counts from that same start, so the
+    date it promises and the refund agree (`refund-rule-public.test.ts`).
+- **Looked at:** rendered locally against staging data, a fixture thread on
+  1 Dec with 100% to 30 days before, 50% to 14, and €5. The page and the popup
+  were checked in en and nl, and the fixture was removed afterwards.
+- **Not verified:** the deployed route (staging is frozen; this lands after),
+  and the four other languages beyond their catalog entries, which are
+  machine-translated and marked `// MT`.
+
 ## [1.277.20] — 2026-10-17
 
 ### A membership with no card to renew on asks for one before the date: in the reminder email and on Purchases (API + my.thread 0.36.0)

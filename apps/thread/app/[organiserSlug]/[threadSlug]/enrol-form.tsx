@@ -22,6 +22,7 @@ async function memberAuthHeader(): Promise<Record<string, string>> {
 import { useEffect, useMemo, useState } from 'react';
 import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { signupByDate } from '@thefibre/shared/thread-dates';
+import { refundRuleLines, type PublicRefundRule } from '@thefibre/shared/refund-rule';
 import { INTL_LOCALES } from '@thefibre/shared/i18n';
 import { VatBreakdown, VatInclNote } from '@thefibre/shared/ui/vat-price';
 import { netFromInclusive } from '@thefibre/shared/price-logic';
@@ -78,6 +79,7 @@ export function EnrolCard({
   timeZone = 'Europe/Amsterdam',
   vatRegistered = false,
   vatHomePct = null,
+  refundRule = null,
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -109,6 +111,9 @@ export function EnrolCard({
   /** The seller's home VAT rate (from the API's homeVatPct), for the small
    *  "incl. VAT" line under the price until a country is chosen. */
   vatHomePct?: number | null;
+  /** What cancelling gives back (refund rules, slice 4), as the public
+   *  payload's `refund_rule` carries it; null = no rule, say nothing. */
+  refundRule?: PublicRefundRule | null;
   /** From ?paid= on return from Stripe Checkout. */
   initialNotice?: 'success' | 'cancelled' | null;
 }) {
@@ -165,6 +170,10 @@ export function EnrolCard({
   const activeCurrency = tickets.length
     ? selectedTicket?.price_currency ?? 'EUR'
     : priceCurrency;
+  const refundLines = useMemo(
+    () => refundRuleLines(refundRule, { timeZone, intlLocale: INTL_LOCALES[locale] ?? 'en-GB', currency: activeCurrency }),
+    [refundRule, timeZone, locale, activeCurrency],
+  );
   // Payment options follow the SELECTED ticket (inheritance resolved
   // server-side); thread-level as fallback.
   const activeMethods: ('stripe' | 'invoice')[] =
@@ -666,6 +675,23 @@ export function EnrolCard({
               ) : (
                 <p className="text-xs text-ink-subtle">{t(locale, activeIncl ? 'prices_incl_vat' : 'prices_excl_vat')}</p>
               )}
+            </div>
+          )}
+
+          {!!activePriceCents && refundLines && (
+            // Read before paying: what cancelling gives back, by the rule the
+            // refund itself follows (refund rules, slice 4).
+            <div className="te-refund-rule space-y-0.5 text-xs text-ink-subtle leading-relaxed">
+              <p className="font-medium text-ink">{t(locale, 'refund_rule_title')}</p>
+              {refundLines.map((l, i) => (
+                <p key={i}>
+                  {l.kind === 'until'
+                    ? t(locale, 'refund_rule_until', { date: l.date, pct: l.pct })
+                    : l.kind === 'after'
+                      ? t(locale, 'refund_rule_after')
+                      : t(locale, 'refund_rule_fee', { fee: l.fee })}
+                </p>
+              ))}
             </div>
           )}
 
