@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.18] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 2, step 5: a contact's Membership tab is for admins (API)
+
+- A membership belongs to the community, so on a contact's page it follows
+  the same rule as the membership rows of the timeline: admins only. Other
+  staff are no longer offered the tab, and its read answers "admins only".
+  The web tab falls back to its empty state.
+- **Tests:** `persons-membership-tab.int.test.ts`, with real sessions in a
+  throwaway workspace, covers an admin and a non-admin who can see the
+  contact. A negative control confirms the check in the route is what
+  decides. `persons-reads.int.test.ts` still passes.
+
 ## [1.277.17] — 2026-10-17
 
 ### Security, foundation 2a: the first module on tenantDb — a workspace's own domains (API)

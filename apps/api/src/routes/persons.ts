@@ -1318,11 +1318,18 @@ personsRoutes.get('/:id/apps', async (c) => {
   // Membership's curator data IS the member row (no separate profile table —
   // tier/status/renewal live on membership_member). RLS-gated like the rest:
   // callers without the app see nothing, so no slug appears.
-  const memberCount = countOf(
-    'person apps: membership',
-    await db.from('membership_member').select('id', { count: 'exact', head: true }).eq('person_id', personId),
-  );
-  if (memberCount > 0) slugs.add('membership');
+  //
+  // ADMINS ONLY since contacts follow the hierarchy (Sjoerd, 2026-10-17): a
+  // membership is the community's, not a thing an organiser, team or host
+  // holds a role on — like the membership rows of the timeline, which are
+  // admin-only too. So the tab is offered to admins and nobody else.
+  if (await isWorkspaceAdmin(ctx)) {
+    const memberCount = countOf(
+      'person apps: membership',
+      await db.from('membership_member').select('id', { count: 'exact', head: true }).eq('person_id', personId),
+    );
+    if (memberCount > 0) slugs.add('membership');
+  }
 
   return c.json({ apps: Array.from(slugs).sort() });
 });
@@ -1331,6 +1338,8 @@ personsRoutes.get('/:id/apps', async (c) => {
 // Writes stay on the membership routes; this is the profile-tab read.
 personsRoutes.get('/:id/membership', async (c) => {
   const ctx = c.get('ctx');
+  // Admins only — the same rule as the tab's presence in /:id/apps above.
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_member')
