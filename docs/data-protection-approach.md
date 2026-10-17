@@ -326,7 +326,7 @@ hope**. The guard tests in §3 exist because of these three.
 
 ### Since this document was adopted
 
-Four more entries for the record, each with the control it produced:
+More entries for the record, each with the control it produced:
 
 - **2026-09-23 — two production API deploys from the wrong working tree.**
   One ran unreleased billing logic for minutes; untracked scripts that read
@@ -360,6 +360,17 @@ Four more entries for the record, each with the control it produced:
   (`20261017141117`, `engagement-anchor.int.test.ts`); the class it belongs
   to, a row pointing across workspaces, is what F3 (composite foreign keys)
   is for.
+- **2026-10-17 — a flow run's subject was not checked against the key's
+  workspace.** The app-key route that starts a Flow run checked that the
+  flow was the workspace's, but took the person and organisation the run is
+  about as given. A run could therefore name a contact of another workspace
+  as its subject. Found converting `app-flow.ts` to `tenantDb`, the same
+  pass as the entry above. Staging checked: none of its 53 runs names a
+  subject outside its own workspace; production data not yet checked (a
+  read-only count is with Sjoerd). Fixed in v1.277.9, in production with
+  batch 43. Control: the route refuses a person or
+  organisation outside the key's workspace (`apps-tenancy.int.test.ts`
+  attacks from a second workspace); the class is F3's, as above.
 
 Controls that exist and were not listed above: the deploy guard and the
 runway clearance (`docs/runway.md`); the scheduler lease; the Zoom
