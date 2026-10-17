@@ -126,20 +126,36 @@ export function ProductsClient({
     }
   }
 
+  // Busy while the group is being made (2026-10-17 audit): the button showed
+  // nothing until the server answered, and a second click made a second
+  // group with the same name.
+  const [creatingGroup, setCreatingGroup] = useState(false);
   async function addGroup() {
     const name = newGroup.trim();
-    if (!name) return;
-    const r = await createProductGroup(name);
-    if (r.error || !r.data) return setError(r.error ?? 'could not create the group');
-    setGroups((g) => [...g, r.data!]);
-    setNewGroup('');
-    setAddingGroup(false);
+    if (!name || creatingGroup) return;
+    setCreatingGroup(true);
+    try {
+      const r = await createProductGroup(name);
+      if (r.error || !r.data) return setError(r.error ?? 'could not create the group');
+      setGroups((g) => [...g, r.data!]);
+      setNewGroup('');
+      setAddingGroup(false);
+    } finally {
+      setCreatingGroup(false);
+    }
   }
 
+  // The new name shows at once and goes back only if the save fails (it used
+  // to flash back to the old name until the server answered, which read as
+  // a rename that had not taken).
   async function renameGroup(id: string, name: string) {
+    const before = groups;
+    setGroups((g) => g.map((x) => (x.id === id ? { ...x, name } : x)));
     const r = await patchProductGroup(id, { name });
-    if (r.error) setError(r.error);
-    else setGroups((g) => g.map((x) => (x.id === id ? { ...x, name } : x)));
+    if (r.error) {
+      setGroups(before);
+      setError(r.error);
+    }
   }
 
   async function archiveGroup(g: ProductGroup) {
@@ -258,7 +274,7 @@ export function ProductsClient({
               placeholder={t(locale, 'pg_name_ph')}
               className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none"
             />
-            <Button variant="secondary" onClick={() => void addGroup()} disabled={!newGroup.trim()}>
+            <Button variant="secondary" onClick={() => void addGroup()} disabled={!newGroup.trim()} pending={creatingGroup}>
               {t(locale, 'pg_new_group')}
             </Button>
           </div>
@@ -335,7 +351,7 @@ export function ProductsClient({
                   label={t(locale, 'pg_options')}
                   items={[
                     { label: t(locale, 'pg_rename'), icon: <Pencil size={14} aria-hidden />, onSelect: () => setRenaming(g.id) },
-                    { label: t(locale, 'pg_archive'), icon: <Archive size={14} aria-hidden />, onSelect: () => void archiveGroup(g), destructive: true },
+                    { label: t(locale, 'pg_archive'), icon: <Archive size={14} aria-hidden />, onSelect: () => archiveGroup(g), destructive: true },
                   ]}
                 />
               </div>

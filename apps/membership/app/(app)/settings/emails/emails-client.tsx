@@ -6,7 +6,7 @@
 // template, rendered by the API) or Send me a test (to your own address).
 // The facts block is always added by us and says so.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RichTextField } from '@thefibre/shared/ui/rich-text-field';
 import { tokenChips } from '@thefibre/shared/merge-tokens';
@@ -44,6 +44,18 @@ export function EmailsClient({ templates, tiers, locale }: { templates: StoredTe
     () => templates.find((x) => x.kind === kind && (x.tier_id ?? null) === tierId && x.locale === lang) ?? null,
     [templates, kind, tierId, lang],
   );
+  // RESET MUST CLEAR THE FIELDS (2026-10-17: "Reset template" looked like it
+  // did nothing). The editor seeds its fields from `stored` once, when it
+  // mounts, and the rich-text field only reads its starting value, so a
+  // template that went back to standard kept showing the custom words. When
+  // the stored template disappears, the editor is mounted afresh. Only then:
+  // a first save (standard → custom) keeps the editor, and its "Saved".
+  const lastStored = useRef(stored);
+  const [resetGen, setResetGen] = useState(0);
+  useEffect(() => {
+    if (lastStored.current && !stored) setResetGen((g) => g + 1);
+    lastStored.current = stored;
+  }, [stored]);
   // The form is keyed on what it edits, so switching email or language starts
   // from that one's stored words.
   return (
@@ -80,7 +92,7 @@ export function EmailsClient({ templates, tiers, locale }: { templates: StoredTe
         </div>
       </div>
       <p className="text-xs text-ink-muted">{t(locale, 'em_lang_note')}</p>
-      <Editor key={`${target}:${lang}`} stored={stored} kind={kind} tierId={tierId} lang={lang} locale={locale} onSaved={() => router.refresh()} />
+      <Editor key={`${target}:${lang}:${resetGen}`} stored={stored} kind={kind} tierId={tierId} lang={lang} locale={locale} onSaved={() => router.refresh()} />
     </div>
   );
 }
@@ -201,7 +213,7 @@ function Editor({
         </Button>
         {stored && (
           <button type="button" disabled={!!busy} onClick={() => void run('reset', () => resetEmailTemplate(stored.id), onSaved)} className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink">
-            {t(locale, 'em_reset')}
+            {busy === 'reset' ? t(locale, 'loading') : t(locale, 'em_reset')}
           </button>
         )}
         <div className="ml-auto">

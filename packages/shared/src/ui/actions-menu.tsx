@@ -20,7 +20,10 @@ export type ActionsMenuItem = {
   /** May return a promise: the menu then stays open with this item showing
    *  a spinner until it settles (2026-10-17: a menu that closed at once and
    *  showed nothing until the server answered read as a click that did not
-   *  register). A plain function closes the menu at once, as before. */
+   *  register). A plain function closes the menu at once, as before.
+   *  Return a promise ONLY for the work itself, never for something that
+   *  waits on the person (a dialog of your own): the menu would sit busy.
+   *  A promise that has not settled after 15 s releases the menu anyway. */
   onSelect: () => void | Promise<unknown>;
   /** A destructive verb (archive, delete) reads in the danger colour. */
   destructive?: boolean;
@@ -103,10 +106,15 @@ export function ActionsMenu({
                 const r = it.onSelect();
                 if (r && typeof (r as Promise<unknown>).then === 'function') {
                   setWorking(it.label);
-                  void (r as Promise<unknown>).finally(() => {
+                  // Safety release: a promise that never settles must not
+                  // leave the menu stuck disabled.
+                  const release = () => {
+                    clearTimeout(timer);
                     setWorking(null);
                     setOpen(false);
-                  });
+                  };
+                  const timer = setTimeout(release, 15_000);
+                  void (r as Promise<unknown>).finally(release);
                 } else {
                   setOpen(false);
                 }

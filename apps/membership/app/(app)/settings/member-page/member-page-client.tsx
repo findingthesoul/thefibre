@@ -148,12 +148,19 @@ export function MemberPageClient({
 
   // Switching what is written saves what was typed first, then loads the
   // other text into the editor (which is keyed on the target).
+  //
+  // The switch happens AT ONCE, and the save runs after (2026-10-17 audit):
+  // the select is controlled by `target`, and it used to change only once the
+  // save had returned, so while the old text was saving the select jumped
+  // back to the old choice and people picked again. saveIntro is this
+  // render's closure, so it still saves the OLD target's text.
   async function switchTarget(next: string) {
-    await saveIntro();
+    const saveOld = saveIntro;
     setTarget(next);
     setHtml(saved[next] ?? '');
     setSaveState('idle');
     setPreview(null);
+    await saveOld();
   }
 
   async function setShownTo(id: string, audience: { tier_ids: string[]; category_ids: string[] }) {
@@ -336,14 +343,30 @@ export function MemberPageClient({
             {docs.map((d, i) => (
               <li
                 key={d.id}
-                draggable
-                onDragStart={() => setDragIdx(i)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => void dropOn(i)}
                 className={`px-3 py-2 ${dragIdx === i ? 'opacity-50' : ''}`}
               >
                 <div className="flex items-center gap-3">
-                <GripVertical size={16} className="shrink-0 cursor-grab text-ink-muted" aria-hidden />
+                {/* The grip alone starts a drag (2026-10-17 audit): with the
+                    whole row draggable, a click on a chip or into the title
+                    with a little mouse movement became a drag. */}
+                <span
+                  draggable
+                  role="button"
+                  tabIndex={-1}
+                  aria-label={t(locale, 'pg_move', { name: d.title })}
+                  title={t(locale, 'pg_move', { name: d.title })}
+                  onDragStart={(e) => {
+                    const row = (e.currentTarget as HTMLElement).closest('li');
+                    if (row) e.dataTransfer.setDragImage(row, 16, 16);
+                    setDragIdx(i);
+                  }}
+                  onDragEnd={() => setDragIdx(null)}
+                  className="flex shrink-0 cursor-grab items-center text-ink-muted hover:text-ink"
+                >
+                  <GripVertical size={16} aria-hidden />
+                </span>
                 {d.kind === 'drive' ? (
                   <Folder size={16} className="shrink-0 text-ink-subtle" aria-hidden />
                 ) : d.kind === 'link' ? (

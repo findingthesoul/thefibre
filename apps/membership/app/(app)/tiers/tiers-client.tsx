@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { GripVertical, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
@@ -106,14 +106,33 @@ export function TiersClient({
           {visible.map((x, i) => (
             <div
               key={x.id}
-              draggable
-              onDragStart={() => setDragIdx(i)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => void dropOn(i)}
-              onDragEnd={() => setDragIdx(null)}
-              className={dragIdx === i ? 'opacity-50' : ''}
+              className={`flex items-stretch gap-1 ${dragIdx === i ? 'opacity-50' : ''}`}
             >
-              <TierCard tier={x} locale={locale} onEdit={setEditing} />
+              {/* The handle alone starts a drag (2026-10-17 audit: the whole
+                  card was draggable, so a click with a few pixels of mouse
+                  movement became a drag and the tier did not open). Ordering
+                  stays drag-and-drop, as Products does it. */}
+              <span
+                draggable
+                role="button"
+                tabIndex={-1}
+                aria-label={t(locale, 'pg_move', { name: x.name })}
+                title={t(locale, 'pg_move', { name: x.name })}
+                onDragStart={(e) => {
+                  const row = (e.currentTarget as HTMLElement).parentElement;
+                  if (row) e.dataTransfer.setDragImage(row, 16, 16);
+                  setDragIdx(i);
+                }}
+                onDragEnd={() => setDragIdx(null)}
+                className="flex shrink-0 cursor-grab items-center px-1 text-ink-muted hover:text-ink"
+              >
+                <GripVertical size={16} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <TierCard tier={x} locale={locale} onEdit={setEditing} />
+              </div>
             </div>
           ))}
         </div>

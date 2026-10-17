@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.276.4] — 2026-10-17
+
+### Members: the clicks that didn't land — Emails Reset clears, tier cards open, "Write for" stays, groups answer (Members 1.21.1)
+
+The per-page half of the Members clicks audit (the shared half is v1.275.0).
+- **Emails → "Reset to the standard text" now clears the fields.** The
+  editor seeded its fields once, when it mounted, and the rich-text field
+  only reads its starting value, so after a reset the custom words stayed
+  on screen and Reset looked like it did nothing. The editor is now mounted
+  afresh when a template goes back to standard (not on a first save, which
+  keeps its "Saved"). The link shows that it is working.
+- **Tier cards open on the first click.** The whole card was draggable, so
+  a click with a few pixels of mouse movement became a drag. Only the grip
+  handle drags now, as on Products. The same for the member page's
+  document rows (a click on a chip or into a title no longer starts a drag).
+  Ordering stays drag-and-drop.
+- **Member page → "Write for" moves at once.** The select changed only after
+  the previous text had saved, so it jumped back meanwhile and people picked
+  again. It switches first; the old text still saves.
+- **Products → "New group"** is busy while the group is made (a second click
+  no longer makes a second group). A **group rename** shows the new name at
+  once and goes back only if the save fails. **Archive group** keeps the
+  menu open with a spinner until it is done.
+- **Shared ActionsMenu**: an item's promise that hasn't settled after 15 s
+  releases the menu, and the type says to return a promise only for the work
+  itself (coordinator's note).
+- **The tier dialog's Name and Description are labelled for screen readers**
+  (their labels were not tied to the fields).
+- New e2e `members-save-refresh.spec.ts` guards v1.275.0. It creates a tier
+  and finds it in the list at the moment the dialog closes (which keeps the
+  removal of revalidatePath honest), checks that a members filter chip
+  lights in under 250 ms, and removes the tier, read back gone. It passed
+  three times on deployed staging (1.32–1.85 s, chip 38–55 ms) and against
+  this branch.
+- Checked against a production build of this branch on the staging API: a
+  tier card opens on a click with mouse movement, only the handles are
+  draggable, Emails Reset empties Subject, and "Write for" moves within
+  300 ms. Members tsc and 42 tests pass.
+
 ## [1.276.3] — 2026-10-17
 
 ### Meet: every mail's date in the reader's language (API)

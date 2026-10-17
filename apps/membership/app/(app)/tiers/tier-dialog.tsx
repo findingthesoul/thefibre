@@ -249,8 +249,9 @@ export function TierDialog({
     >
       <form id="tier-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
+          <label htmlFor="tier-name" className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
           <input
+            id="tier-name"
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -259,8 +260,9 @@ export function TierDialog({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">{t(locale, 'description')}</label>
+          <label htmlFor="tier-description" className="block text-sm font-medium mb-1">{t(locale, 'description')}</label>
           <textarea
+            id="tier-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
