@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSaveAndRefresh } from '@/lib/use-save-and-refresh';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { COUNTRIES } from '@thefibre/shared/countries';
@@ -60,6 +61,7 @@ export function MemberDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { refreshing, refreshThen } = useSaveAndRefresh();
   // Org membership: the organisation holds the membership; its people
   // occupy seats (rendered below). Person concepts (country, access
   // journal) hide; seat allowance appears instead.
@@ -101,8 +103,8 @@ export function MemberDialog({
       setBusy(false);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   return (
@@ -116,8 +118,8 @@ export function MemberDialog({
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             {t(locale, 'cancel')}
           </Button>
-          <Button type="submit" form="member-form" disabled={busy}>
-            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          <Button type="submit" form="member-form" pending={busy || refreshing}>
+            {busy || refreshing ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }

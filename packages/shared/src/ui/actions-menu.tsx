@@ -12,12 +12,16 @@
 // outside closes. Items are buttons with role="menuitem".
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { Loader2, MoreHorizontal } from 'lucide-react';
 
 export type ActionsMenuItem = {
   label: string;
   icon?: ReactNode;
-  onSelect: () => void;
+  /** May return a promise: the menu then stays open with this item showing
+   *  a spinner until it settles (2026-10-17: a menu that closed at once and
+   *  showed nothing until the server answered read as a click that did not
+   *  register). A plain function closes the menu at once, as before. */
+  onSelect: () => void | Promise<unknown>;
   /** A destructive verb (archive, delete) reads in the danger colour. */
   destructive?: boolean;
 };
@@ -42,6 +46,7 @@ export function ActionsMenu({
   note?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [working, setWorking] = useState<string | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const box = useRef<HTMLDivElement>(null);
 
@@ -92,13 +97,23 @@ export function ActionsMenu({
               key={it.label}
               type="button"
               role="menuitem"
+              disabled={working !== null}
+              aria-busy={working === it.label || undefined}
               onClick={() => {
-                setOpen(false);
-                it.onSelect();
+                const r = it.onSelect();
+                if (r && typeof (r as Promise<unknown>).then === 'function') {
+                  setWorking(it.label);
+                  void (r as Promise<unknown>).finally(() => {
+                    setWorking(null);
+                    setOpen(false);
+                  });
+                } else {
+                  setOpen(false);
+                }
               }}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-sunken ${it.destructive ? 'text-red-700 dark:text-red-400' : 'text-ink'}`}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-sunken disabled:cursor-wait ${it.destructive ? 'text-red-700 dark:text-red-400' : 'text-ink'} ${working !== null && working !== it.label ? 'opacity-50' : ''}`}
             >
-              {it.icon}
+              {working === it.label ? <Loader2 size={14} className="animate-spin" aria-hidden /> : it.icon}
               {it.label}
             </button>
           ))}

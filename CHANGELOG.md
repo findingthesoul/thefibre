@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.275.0] — 2026-10-17
+
+### Members: a click shows that it took — the dialog closes when the new data is in, settings pages show they are loading, filters move at once (Members 1.21.0)
+
+- Sjoerd: "In members: very often I have to click twice or three times,
+  or I don't see what is happening." An audit of every control, timed on
+  staging, found no click that is lost to a guard or to hydration, but
+  several waits that show nothing. The worst: after a Save the dialog closed
+  at 0.82 s, while the list showed the new values only at 1.73 s, so almost
+  a second of the OLD state on screen. This release fixes the shared causes.
+- **The dialog closes when the new data is in** (`lib/use-save-and-refresh.ts`).
+  The refresh runs in a transition and the dialog closes when it lands. Until
+  then Save says "Saving…" with a spinner. Applies to the member,
+  add-member, tier, product, access-grant and Google-accounts dialogs. A
+  failed save leaves the dialog open with its error and the typed values,
+  as before.
+- **One server render per save, not two.** `revalidatePath` is gone from the
+  actions whose callers all refresh (every tier action; createProduct,
+  patchProduct, setProductTiers; createGrant, deleteGrant; createMember,
+  patchMember). Actions whose callers don't refresh keep it (product groups,
+  organisation seats, the rest). Measured on a tier Save (production build,
+  staging API): with it, every save took 1.33 s; without it, about 0.82 s
+  after the first. Proven by a test that creates a tier and finds it in the
+  list at the moment the dialog closes, with no reload, then deletes it.
+- **Settings pages show they are loading** (`settings/loading.tsx`).
+  Moving between the eleven settings pages left the old one frozen until
+  the next had rendered.
+- **Members filters move at once.** The status chips and the tier select
+  are a transition: the chip lights at once (45 ms measured; it used to wait
+  for the server) and the list dims until the filtered one is in (0.26 s on
+  the fixture).
+- **Products and Tiers load their data in parallel.** Products made nine
+  calls one after another and every save re-ran them. They are now one
+  `Promise.all`, each keeping its own soft failure, and the Tiers tail too.
+- **Shared, for every app:** `Button` has an optional `pending` (disabled,
+  `aria-busy`, a spinner in place of its icon), and an `ActionsMenu` item may
+  return a promise: the menu then stays open with a spinner on that item
+  until it settles. Callers that pass neither render exactly as before.
+- Next, per page (smaller, separate): Emails "Reset template" not clearing
+  the fields; drag handles instead of whole draggable cards (tiers,
+  member-page documents); the member page "Edit for" select snapping back;
+  optimistic inline renames; Products "New group" busy state.
+- Checked: `pnpm -r typecheck` (all apps and packages), Members 42 tests,
+  and the three timing tests above against a production build of this
+  branch on the staging API.
+
 ## [1.274.2] — 2026-10-17
 
 ### my.thread → Members → a member: how to reach them sits next to the photo, above the bio (my.thread 0.34.1)

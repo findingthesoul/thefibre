@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSaveAndRefresh } from '@/lib/use-save-and-refresh';
 import { Tabs } from '@thefibre/shared/ui/tabs';
 import { TextField, TextAreaField } from '@thefibre/shared/ui/fields';
 import { NOTICE, PILL, PILL_TONE, ROW_LIST, type PillTone } from '@thefibre/shared/ui/recipes';
@@ -162,6 +163,7 @@ function DecideDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { refreshing, refreshThen } = useSaveAndRefresh();
   const formId = `ga-${what}-form`;
 
   async function submit(e: React.FormEvent) {
@@ -174,8 +176,8 @@ function DecideDialog({
       setError(r.error);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   const who = item.person_name ?? item.person_email ?? '';
@@ -190,8 +192,8 @@ function DecideDialog({
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             {t(locale, 'cancel')}
           </Button>
-          <Button type="submit" form={formId} disabled={busy || (what === 'created' && !value.trim())}>
-            {busy ? t(locale, 'saving') : t(locale, what === 'created' ? 'ga_mark_created' : 'ga_decline')}
+          <Button type="submit" form={formId} pending={busy || refreshing} disabled={what === 'created' && !value.trim()}>
+            {busy || refreshing ? t(locale, 'saving') : t(locale, what === 'created' ? 'ga_mark_created' : 'ga_decline')}
           </Button>
         </>
       }

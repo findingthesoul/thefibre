@@ -33,13 +33,18 @@ export type ProductInput = {
   sort_order: number;
 };
 
+// NO revalidatePath in createProduct, patchProduct and setProductTiers (2026-10-17): every caller refreshes
+// (useSaveAndRefresh or router.refresh()), so revalidating as well rendered
+// the page twice per save. Measured on a tier Save: 1.33 s → 0.82 s, with
+// the new data on screen when the dialog closes. Actions whose callers do
+// NOT refresh keep their revalidatePath.
+
 export async function createProduct(input: ProductInput): Promise<ActionResult<{ id: string }>> {
   try {
     const r = await apiFetch<{ id: string }>('/api/v1/membership/products', {
       method: 'POST',
       body: JSON.stringify(input),
     });
-    revalidatePath('/products');
     return { ok: true, data: { id: r.id } };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -56,7 +61,6 @@ export async function patchProduct(
       method: 'PATCH',
       body: JSON.stringify(input),
     });
-    revalidatePath('/products');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -70,7 +74,6 @@ export async function setProductTiers(productId: string, optionalTierIds: string
       method: 'PUT',
       body: JSON.stringify({ optional_tier_ids: optionalTierIds }),
     });
-    revalidatePath('/products');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };

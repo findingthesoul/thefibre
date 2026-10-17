@@ -36,20 +36,25 @@ export default async function TiersPage() {
   } catch {
     /* empty state below */
   }
-  const currency = await workspaceCurrencies();
-  const locale = await uiLocale();
-  // The join page's own address, for the link to an unlisted tier. The slug
-  // comes from the API (workspace-brand already returns it) rather than from
-  // anything assembled here — a hand-built public URL is how this repo has
-  // sent people to the wrong stack before.
-  const workspaceSlug = await apiFetch<{ slug: string | null }>('/api/v1/workspace-brand')
-    .then((r) => r.slug)
-    .catch(() => null);
+  // The tail at once (2026-10-17 audit; it ran one call after another, and
+  // every save here re-runs it through router.refresh()). The join page's
+  // own address, for the link to an unlisted tier: the slug comes from the
+  // API (workspace-brand already returns it) rather than from anything
+  // assembled here — a hand-built public URL is how this repo has sent
+  // people to the wrong stack before.
+  const [currency, locale, workspaceSlug, vatRegistered] = await Promise.all([
+    workspaceCurrencies(),
+    uiLocale(),
+    apiFetch<{ slug: string | null }>('/api/v1/workspace-brand')
+      .then((r) => r.slug)
+      .catch(() => null),
+    workspaceVatRegistered(),
+  ]);
 
   return (
     <div className="px-6 py-10 max-w-5xl">
       <TiersClient
-        vatRegistered={await workspaceVatRegistered()}
+        vatRegistered={vatRegistered}
         tiers={tiers}
         products={products}
         categories={categories}

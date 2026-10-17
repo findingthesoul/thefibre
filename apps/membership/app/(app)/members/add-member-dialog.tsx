@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSaveAndRefresh } from '@/lib/use-save-and-refresh';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { BillingChoice } from '@thefibre/shared/ui/billing-choice';
 import { COUNTRIES } from '@thefibre/shared/countries';
@@ -36,6 +37,7 @@ export function AddMemberDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { refreshing, refreshThen } = useSaveAndRefresh();
   // Who holds the membership: a person (default) or an ORGANISATION whose
   // people occupy seats under it (§3.5 v1 — invoice/comped only).
   const [kind, setKind] = useState<'person' | 'organisation'>('person');
@@ -145,13 +147,13 @@ export function AddMemberDialog({
         setBusy(false);
         return;
       }
-      router.refresh();
       if (res.data?.invoice_error) {
+        router.refresh();
         setError(t(locale, 'membership_added_but', { error: res.data.invoice_error }));
         setBusy(false);
         return;
       }
-      onClose();
+      refreshThen(onClose);
       return;
     }
 
@@ -220,14 +222,15 @@ export function AddMemberDialog({
       setBusy(false);
       return;
     }
-    router.refresh();
     if (res.data?.invoice_error) {
       // The member exists — keep the dialog open so the warning is read.
+      router.refresh();
       setError(t(locale, 'member_added_but', { error: res.data.invoice_error }));
       setBusy(false);
       return;
     }
-    onClose();
+    // Close once the new member is in the list, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   return (
@@ -241,8 +244,8 @@ export function AddMemberDialog({
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             {t(locale, 'cancel')}
           </Button>
-          <Button type="submit" form="add-member-form" disabled={busy}>
-            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          <Button type="submit" form="add-member-form" pending={busy || refreshing}>
+            {busy || refreshing ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }

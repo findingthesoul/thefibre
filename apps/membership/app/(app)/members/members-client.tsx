@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,8 +35,16 @@ export function MembersClient({
   // Same default as the server, so the chip that is lit is the filter that
   // was applied. Two defaults would be a page that shows active members with
   // All highlighted.
-  const status = params.get('status') === null ? 'active' : params.get('status') || 'all';
-  const tier = params.get('tier') ?? '';
+  const urlStatus = params.get('status') === null ? 'active' : params.get('status') || 'all';
+  const urlTier = params.get('tier') ?? '';
+  // A filter change is a transition (2026-10-17 audit): the chip or the
+  // select moves at once, the list stays on screen dimmed until the
+  // filtered one arrives. Before, the lit chip came from the URL and so
+  // did not move until the server answered — people clicked again.
+  const [filtering, startFilter] = useTransition();
+  const [picked, setPicked] = useState<{ status?: string; tier?: string }>({});
+  const status = filtering && picked.status !== undefined ? picked.status : urlStatus;
+  const tier = filtering && picked.tier !== undefined ? picked.tier : urlTier;
   const q = params.get('q') ?? '';
 
   // Local echo of the search box so typing doesn't wait on navigation.
@@ -48,7 +56,8 @@ export function MembersClient({
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
     else next.delete(key);
-    router.replace(`${pathname}${next.size ? `?${next}` : ''}`);
+    if (key === 'status' || key === 'tier') setPicked((p) => ({ ...p, [key]: key === 'status' ? value || 'all' : value }));
+    startFilter(() => router.replace(`${pathname}${next.size ? `?${next}` : ''}`));
   }
 
   useEffect(() => {
@@ -121,7 +130,10 @@ export function MembersClient({
         />
       </div>
 
-      <div className="mt-6 rounded-2xl border border-line bg-surface-raised overflow-hidden">
+      <div
+        aria-busy={filtering || undefined}
+        className={`mt-6 rounded-2xl border border-line bg-surface-raised overflow-hidden transition-opacity ${filtering ? 'opacity-60' : ''}`}
+      >
         {members.length === 0 ? (
           <div className="p-8 text-center text-sm text-ink-muted">
             {status !== 'all' || tier || q

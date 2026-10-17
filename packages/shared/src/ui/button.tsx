@@ -8,6 +8,7 @@
 // next/link at module scope and re-exports the result.
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'save';
 type Size = 'sm' | 'md' | 'icon';
@@ -57,19 +58,27 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;
   leading?: ReactNode;
+  /** Work is under way (Sjoerd, 2026-10-17: "very often I have to click
+   *  twice or three times, or I don't see what is happening"): the button
+   *  is disabled, says so to a screen reader (aria-busy), and shows a
+   *  spinner in place of its icon. Optional: a caller that does not pass it
+   *  renders exactly as before. */
+  pending?: boolean;
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { variant = 'primary', size = 'md', leading, className = '', children, ...rest },
+  { variant = 'primary', size = 'md', leading, className = '', children, pending, disabled, ...rest },
   ref,
 ) {
   return (
     <button
       ref={ref}
       className={buttonClassName(resolveVariant(variant, rest.type), size, className)}
+      disabled={disabled || pending}
+      {...(pending ? { 'aria-busy': true } : {})}
       {...rest}
     >
-      {leading}
+      {pending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : leading}
       {children}
     </button>
   );

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DateField } from '@thefibre/shared/ui/date-field';
 import { useRouter } from 'next/navigation';
+import { useSaveAndRefresh } from '@/lib/use-save-and-refresh';
 import { Trash2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -99,6 +100,7 @@ export function ProductDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { refreshing, refreshThen } = useSaveAndRefresh();
   const [name, setName] = useState(product?.name ?? '');
   const [currency, setCurrency] = useState(product?.currency ?? workspaceCurrency.default_currency);
   const currencyOptions = [...new Set([...workspaceCurrency.currencies, currency])];
@@ -313,8 +315,8 @@ export function ProductDialog({
         return;
       }
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   async function handleArchive() {
@@ -333,8 +335,8 @@ export function ProductDialog({
       setConfirmArchive(false);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   return (
@@ -363,8 +365,8 @@ export function ProductDialog({
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             {t(locale, 'cancel')}
           </Button>
-          <Button type="submit" form="product-form" disabled={busy}>
-            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          <Button type="submit" form="product-form" pending={busy || refreshing}>
+            {busy || refreshing ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }

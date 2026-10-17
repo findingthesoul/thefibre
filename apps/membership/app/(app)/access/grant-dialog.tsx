@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSaveAndRefresh } from '@/lib/use-save-and-refresh';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { TeamCalendarGrantFields } from '@thefibre/shared/ui/team-calendar-grant';
 import { teamCalendarGrantConfig } from '@thefibre/shared/team-calendar-grant';
@@ -47,6 +48,7 @@ export function GrantDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { refreshing, refreshThen } = useSaveAndRefresh();
   const existing = Boolean(grant);
   const [tierId, setTierId] = useState(grant?.tier_id ?? tiers[0]?.id ?? '');
   const [kind, setKind] = useState<GrantKind>(grant?.kind ?? 'circle');
@@ -128,8 +130,8 @@ export function GrantDialog({
       setBusy(false);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   async function handleDelete() {
@@ -147,8 +149,8 @@ export function GrantDialog({
       setConfirmDelete(false);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   return (
@@ -173,8 +175,8 @@ export function GrantDialog({
             {t(locale, 'cancel')}
           </Button>
           {!existing && (
-            <Button type="submit" form="grant-form" disabled={busy}>
-              {busy ? t(locale, 'saving') : t(locale, 'save')}
+            <Button type="submit" form="grant-form" pending={busy || refreshing}>
+              {busy || refreshing ? t(locale, 'saving') : t(locale, 'save')}
             </Button>
           )}
         </>

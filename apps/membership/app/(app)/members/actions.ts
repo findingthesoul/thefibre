@@ -41,6 +41,12 @@ function formatApiError(e: unknown): string {
   return formErrorResult(e.status, e.body, MEMBER_FIELD_LABELS).error ?? `API ${e.status}`;
 }
 
+// NO revalidatePath in createMember and patchMember (2026-10-17): every caller refreshes
+// (useSaveAndRefresh or router.refresh()), so revalidating as well rendered
+// the page twice per save. Measured on a tier Save: 1.33 s → 0.82 s, with
+// the new data on screen when the dialog closes. Actions whose callers do
+// NOT refresh keep their revalidatePath.
+
 export async function createMember(input: {
   // Exactly one of person_id / organisation_id: an org membership holds
   // seats its people occupy (§3.5 v1 — invoice/comped only, no Stripe).
@@ -69,7 +75,6 @@ export async function createMember(input: {
         ...(input.invite !== undefined ? { invite: input.invite } : {}),
       }),
     });
-    revalidatePath('/members');
     return { ok: true, data: r };
   } catch (e) {
     // 409 = already a member — the API's message is already user-facing.
@@ -97,7 +102,6 @@ export async function patchMember(
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
-    revalidatePath('/members');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };

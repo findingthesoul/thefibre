@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { tierJoinLink } from '@thefibre/shared/tier-link';
 import { DateField } from '@thefibre/shared/ui/date-field';
 import { useRouter } from 'next/navigation';
+import { useSaveAndRefresh } from '@/lib/use-save-and-refresh';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -56,6 +57,7 @@ export function TierDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { refreshing, refreshThen } = useSaveAndRefresh();
   const [name, setName] = useState(tier?.name ?? '');
   const [currency, setCurrency] = useState(tier?.currency ?? workspaceCurrency.default_currency);
   // A tier priced before the workspace list shrank keeps its currency —
@@ -189,8 +191,8 @@ export function TierDialog({
       setBusy(false);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   async function handleArchive() {
@@ -209,8 +211,8 @@ export function TierDialog({
       setConfirmArchive(false);
       return;
     }
-    onClose();
-    router.refresh();
+    // Close once the new data is on screen, not before (2026-10-17).
+    refreshThen(onClose);
   }
 
   return (
@@ -239,8 +241,8 @@ export function TierDialog({
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             {t(locale, 'cancel')}
           </Button>
-          <Button type="submit" form="tier-form" disabled={busy}>
-            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          <Button type="submit" form="tier-form" pending={busy || refreshing}>
+            {busy || refreshing ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
