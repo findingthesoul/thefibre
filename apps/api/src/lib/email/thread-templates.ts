@@ -2,7 +2,9 @@
 // emails (branding.ts is the SPoT).
 
 import { emailSignoff, INTL_LOCALES, makeT, toLocale, type I18nEntry, type Locale } from '@thefibre/shared';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { shell, escapeHtml, type EmailBrand } from './templates.js';
+import { sanitizeRichText } from '../rich-text.js';
 import { myThreadUrl } from '../message-tokens.js';
 
 /**
@@ -326,6 +328,32 @@ export function enrolmentPending(c: {
   return { subject, text, html };
 }
 
+/**
+ * A thread's intention in a mail: RICH TEXT, the editor's HTML (sanitised on
+ * save since 2026-09-10). It went in through escapeHtml — and raw into the
+ * text part — so every enrolee of a thread on this fallback confirmation saw
+ * "<p><b>The membership rhythm…" as literal text (Sjoerd, production,
+ * 2026-10-17, "Community agenda 2027").
+ *
+ * HTML part: sanitised again here (the way out is not trusted to the way in)
+ * and rendered as HTML. Text part: plain text, blocks and list items on their
+ * own lines, never a tag. An intention written before it was rich (no tags)
+ * is the organiser's plain words: escaped, line breaks kept.
+ */
+export function intentionForMail(intention: string | null | undefined): { html: string; text: string } {
+  const raw = (intention ?? '').trim();
+  if (!raw) return { html: '', text: '' };
+  // Rich when it carries a tag the editor makes (lib/rich-text.ts's list);
+  // "<curiosity>" in a plain sentence is words, not markup.
+  if (!/<\/?(p|br|div|span|b|strong|i|em|u|s|ul|ol|li|a|h[1-4]|blockquote|code|pre|hr)\b[^>]*>/i.test(raw)) {
+    return { html: escapeHtml(raw).replaceAll('\n', '<br />'), text: raw };
+  }
+  const clean = sanitizeRichText(raw);
+  const text = richTextToPlain(clean ?? '').trim();
+  if (!clean || !text) return { html: '', text: '' };
+  return { html: clean, text };
+}
+
 export function enrolmentConfirmation(c: ThreadEnrolmentEmail): {
   subject: string;
   text: string;
@@ -352,11 +380,12 @@ export function enrolmentConfirmation(c: ThreadEnrolmentEmail): {
   const startLine = startDate ? L.starts.replace('{date}', startDate) : '';
 
   const note = c.note?.trim();
+  const intention = intentionForMail(c.intention);
   const text = `${hi}
 
 ${enrolledLine}
 ${startLine ? `\n${startLine}\n` : ''}
-${note ? `${note}\n\n` : ''}${c.intention ? `${c.intention}\n\n` : ''}${c.threadUrl}
+${note ? `${note}\n\n` : ''}${intention.text ? `${intention.text}\n\n` : ''}${c.threadUrl}
 
 ${emailSignoff()}`;
 
@@ -373,8 +402,8 @@ ${emailSignoff()}`;
       </p>
       ${noteHtml(note)}
       ${
-        c.intention
-          ? `<p style="margin:0 0 16px;font-size:14px;color:#525252;">${escapeHtml(c.intention)}</p>`
+        intention.html
+          ? `<div style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#525252;">${intention.html}</div>`
           : ''
       }
       <p style="margin:24px 0;">

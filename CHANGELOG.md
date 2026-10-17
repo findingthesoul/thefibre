@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.3] — 2026-10-17
+
+### Hotfix: the enrolment confirmation shows a thread's description as text, not as raw HTML (API)
+
+- Sjoerd, production: the real "You're enrolled: Community agenda 2027" mail
+  showed "<p></p><p><b>The membership rhythm combines…</b></p><ol><li>…" as
+  literal text. Every enrolee of that thread got it.
+- The path: the platform's own fallback confirmation (`enrolmentConfirmation`
+  in lib/email/thread-templates.ts), sent when a thread has no automatic
+  welcome of its own — this one's had been deleted. It put the thread's
+  intention, which is rich text (HTML, sanitised on save), through
+  `escapeHtml` into the HTML part and raw into the text part.
+- Now `intentionForMail`: the HTML part gets it sanitised again and rendered
+  as HTML; the text part gets plain text (blocks and list items on their own
+  lines, no tags); an intention written before it was rich (no editor tags)
+  stays the organiser's plain words, escaped, line breaks kept.
+- Swept the other mails: triggered and scheduled messages already render
+  their bodies to plain text before tokens, and no token carries the
+  description; session invitations carry the title only; Meet descriptions
+  are plain text. The fallback still carries the ticket.
+- Test: `enrolment-intention.test.ts` (rich renders as HTML and as clean text,
+  a script and an event handler are stripped, plain text is kept, an empty
+  intention adds nothing).
+
 ## [1.262.2] — 2026-10-17
 
 ### HOTFIX: my.thread → Next lists every session at the thread's own time (my.thread 0.31.1)
