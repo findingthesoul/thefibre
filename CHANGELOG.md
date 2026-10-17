@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.276.5] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 2, step 1: activity_ref, what an activity row is about (database)
+
+- Sjoerd: "I can only see what those contacts have done in relation to my
+  organisation, not the whole workspace." Today a visible person's whole
+  workspace timeline is visible. An activity row names the person, the app
+  and what happened, but not which thread or booking it belongs to: every
+  writer puts a label and a title in `subject` (census of all writers,
+  2026-10-17).
+- **`activity_ref (activity_id pk → activity, ref_kind, ref_id)`**, one ref
+  per row:
+  - `ref_kind` is 'thread' (thread_thread.id) or 'meet_booking'
+    (meet_booking.id);
+  - a new kind is a CHECK change, so that it arrives together with its
+    visibility rule.
+- **A side table, because activity is append-only.** New rows will get their
+  ref from the writers; rows already written can only be given one here, by a
+  per-database backfill script that never touches activity itself.
+- **A ref is final:** no UPDATE (trigger), and it goes only with its activity
+  row.
+- **It carries its own `workspace_id`.** A trigger forces it to equal its
+  activity row's, so the API reaches the table through `tenantDb` (security
+  F1) like any tenant table.
+- **The thing it points at is checked too.** The same trigger refuses a ref
+  whose thread or booking is in another workspace. A writer or backfill bug
+  cannot attach one tenant's row to another tenant's thread: the database
+  refuses it, not only the read rule.
+- Service role only: RLS on, no policies. Indexed on (ref_kind, ref_id).
+- **Migration alone, first.** It changes nothing anyone sees. Next, in order:
+  - the writers + `can_see_activity`;
+  - the membership tab's gate;
+  - the backfill script.
+
 ## [1.276.4] — 2026-10-17
 
 ### Members: the clicks that didn't land — Emails Reset clears, tier cards open, "Write for" stays, groups answer (Members 1.21.1)
