@@ -14,7 +14,7 @@
 // cannot say so. `adoptVerifiedDomains()` (admin route) turns those into rows
 // from the provider's own list, after which the rule above is the only one.
 
-import { adminClient } from '../db.js';
+import { serviceRole, tenantDb } from './tenant-db.js';
 import { row, rows } from './rows.js';
 import type { ResendDomain, ResendRecord, ResendRecordStatus } from './resend-domains.js';
 import { VERCEL_CNAME_TARGET, type VercelDomainConfig, type VercelProjectDomain } from './vercel-domains.js';
@@ -72,10 +72,9 @@ export async function senderDomainState(
   if (!host) return null;
   const r = row(
     'workspace_domain for sender',
-    await adminClient
+    await tenantDb(workspaceId)
       .from('workspace_domain')
       .select('status')
-      .eq('workspace_id', workspaceId)
       .eq('kind', 'email')
       .eq('host', host)
       .maybeSingle(),
@@ -88,10 +87,9 @@ export async function senderDomainState(
 export async function emailDomainOf(workspaceId: string): Promise<WorkspaceDomainRow | null> {
   const list = rows(
     'workspace_domain',
-    await adminClient
+    await tenantDb(workspaceId)
       .from('workspace_domain')
       .select('*')
-      .eq('workspace_id', workspaceId)
       .eq('kind', 'email')
       .order('created_at', { ascending: false })
       .limit(1),
@@ -136,10 +134,9 @@ export function rowPatchFromResend(d: ResendDomain, now = new Date()): {
 export async function webDomainsOf(workspaceId: string): Promise<WorkspaceDomainRow[]> {
   return rows(
     'workspace_domain web',
-    await adminClient
+    await tenantDb(workspaceId)
       .from('workspace_domain')
       .select('*')
-      .eq('workspace_id', workspaceId)
       .eq('kind', 'web')
       .order('created_at', { ascending: false }),
   ) as WorkspaceDomainRow[];
@@ -158,7 +155,7 @@ export async function resolveWebHost(host: string | null | undefined): Promise<R
   if (!h) return null;
   const r = row(
     'workspace_domain resolve',
-    await adminClient
+    await serviceRole('a request on a customer host names no workspace yet: the host resolves to its one owner')
       .from('workspace_domain')
       .select('app, root_slug, workspace_id, status')
       .eq('kind', 'web')
@@ -173,7 +170,11 @@ export async function resolveWebHost(host: string | null | undefined): Promise<R
 export async function verifiedWebOrigins(): Promise<string[]> {
   const list = rows(
     'workspace_domain verified web',
-    await adminClient.from('workspace_domain').select('host').eq('kind', 'web').eq('status', 'verified'),
+    await serviceRole('the CORS allow-list is platform-wide: every verified web host, hosts only')
+      .from('workspace_domain')
+      .select('host')
+      .eq('kind', 'web')
+      .eq('status', 'verified'),
   ) as { host: string }[];
   return list.map((r) => `https://${r.host}`);
 }
@@ -190,13 +191,17 @@ export async function rootBelongsToWorkspace(app: WebApp, workspaceId: string, r
   if (app === 'the-thread') {
     const r = row(
       'public_root_slug',
-      await adminClient.from('public_root_slug').select('workspace_id').eq('slug', slug).maybeSingle(),
+      await serviceRole('public_root_slug is one global namespace: reads which workspace owns the slug')
+        .from('public_root_slug')
+        .select('workspace_id')
+        .eq('slug', slug)
+        .maybeSingle(),
     ) as { workspace_id: string } | null;
     return r?.workspace_id === workspaceId;
   }
   const [host, team] = await Promise.all([
-    adminClient.from('meet_host').select('id').eq('workspace_id', workspaceId).eq('slug', slug).maybeSingle(),
-    adminClient.from('team').select('id').eq('workspace_id', workspaceId).eq('slug', slug).maybeSingle(),
+    tenantDb(workspaceId).from('meet_host').select('id').eq('slug', slug).maybeSingle(),
+    tenantDb(workspaceId).from('team').select('id').eq('slug', slug).maybeSingle(),
   ]);
   return Boolean(row('meet_host', host) || row('team', team));
 }

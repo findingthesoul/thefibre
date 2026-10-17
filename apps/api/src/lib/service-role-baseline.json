@@ -542,12 +542,6 @@
   "thread_settings.select": 1,
   "workspace.select": 1
  },
- "lib/workspace-domain.ts": {
-  "meet_host.select": 1,
-  "public_root_slug.select": 1,
-  "team.select": 1,
-  "workspace_domain.select": 5
- },
  "lib/workspace-refs.ts": {
   "<dynamic>.select": 1,
   "team.select": 1,
@@ -1177,13 +1171,6 @@
  "routes/workspace-brand.ts": {
   "workspace.select": 2,
   "workspace.update": 1,
-  "workspace_member.select": 1
- },
- "routes/workspace-domain.ts": {
-  "workspace_domain.delete": 3,
-  "workspace_domain.insert": 2,
-  "workspace_domain.select": 2,
-  "workspace_domain.update": 2,
   "workspace_member.select": 1
  },
  "routes/workspaces.ts": {

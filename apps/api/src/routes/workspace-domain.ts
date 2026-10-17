@@ -14,7 +14,7 @@
 
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { adminClient } from '../db.js';
+import { serviceRole, tenantDb } from '../lib/tenant-db.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { row } from '../lib/rows.js';
 import { resendDomains } from '../lib/resend-domains.js';
@@ -37,11 +37,10 @@ import { verifiedWebOrigins } from '../lib/workspace-domain.js';
 export const workspaceDomainRoutes = new Hono();
 
 async function isAdmin(userId: string, workspaceId: string): Promise<boolean> {
-  const { data } = await adminClient
+  const { data } = await tenantDb(workspaceId)
     .from('workspace_member')
     .select('workspace_role')
     .eq('user_id', userId)
-    .eq('workspace_id', workspaceId)
     .maybeSingle();
   return data?.workspace_role === 'admin' || data?.workspace_role === 'super_admin';
 }
@@ -140,7 +139,7 @@ workspaceDomainRoutes.post('/web', async (c) => {
 
   const taken = row(
     'workspace_domain taken?',
-    await adminClient.from('workspace_domain').select('workspace_id').eq('kind', 'web').eq('host', host).maybeSingle(),
+    await serviceRole('a host belongs to one workspace on the whole platform: this reads only which one').from('workspace_domain').select('workspace_id').eq('kind', 'web').eq('host', host).maybeSingle(),
   ) as { workspace_id: string } | null;
   if (taken) {
     return c.json(
@@ -159,7 +158,7 @@ workspaceDomainRoutes.post('/web', async (c) => {
   }
   const cfg = await provider.config(host).catch(() => null);
   const patch = webRowPatchFromVercel(host, added, cfg);
-  const { data, error } = await adminClient
+  const { data, error } = await tenantDb(ctx)
     .from('workspace_domain')
     .insert({ workspace_id: ctx.workspaceId, kind: 'web', host, provider: 'vercel', app, root_slug: root, ...patch })
     .select('*')
@@ -193,7 +192,7 @@ workspaceDomainRoutes.post('/web/check', async (c) => {
     const cfg = await provider.config(existing.host).catch(() => null);
     const patch = webRowPatchFromVercel(existing.host, d, cfg);
     if (existing.verified_at) delete (patch as { verified_at?: string }).verified_at;
-    const { data, error } = await adminClient.from('workspace_domain').update(patch).eq('id', existing.id).select('*').single();
+    const { data, error } = await tenantDb(ctx).from('workspace_domain').update(patch).eq('id', existing.id).select('*').single();
     if (error) {
       console.error('[workspace-domain] web check update failed', error);
       return c.json({ error: error.message }, 500);
@@ -225,7 +224,7 @@ workspaceDomainRoutes.delete('/web', async (c) => {
       console.warn('[workspace-domain] vercel delete', existing.host, e instanceof Error ? e.message : e);
     }
   }
-  const { error } = await adminClient.from('workspace_domain').delete().eq('id', existing.id);
+  const { error } = await tenantDb(ctx).from('workspace_domain').delete().eq('id', existing.id);
   if (error) {
     console.error('[workspace-domain] web delete failed', error);
     return c.json({ error: error.message }, 500);
@@ -262,7 +261,7 @@ workspaceDomainRoutes.post('/email', async (c) => {
   // Postgres error; say it in words first.
   const taken = row(
     'workspace_domain taken?',
-    await adminClient.from('workspace_domain').select('workspace_id').eq('kind', 'email').eq('host', host).maybeSingle(),
+    await serviceRole('a host belongs to one workspace on the whole platform: this reads only which one').from('workspace_domain').select('workspace_id').eq('kind', 'email').eq('host', host).maybeSingle(),
   ) as { workspace_id: string } | null;
   if (taken && taken.workspace_id !== ctx.workspaceId) {
     return c.json({ error: 'Another workspace on this platform already uses this domain for its email.' }, 409);
@@ -281,12 +280,12 @@ workspaceDomainRoutes.post('/email', async (c) => {
     // Best effort: a stale registration at the provider is clutter, not a
     // failure the admin can do anything about.
     if (existing.provider_id) await provider.remove(existing.provider_id).catch(() => undefined);
-    const { error } = await adminClient.from('workspace_domain').delete().eq('id', existing.id);
+    const { error } = await tenantDb(ctx).from('workspace_domain').delete().eq('id', existing.id);
     if (error) console.error('[workspace-domain] could not drop the previous row', error);
   }
 
   const patch = rowPatchFromResend(created);
-  const { data, error } = await adminClient
+  const { data, error } = await tenantDb(ctx)
     .from('workspace_domain')
     .insert({ workspace_id: ctx.workspaceId, kind: 'email', host, provider: 'resend', ...patch })
     .select('*')
@@ -321,7 +320,7 @@ workspaceDomainRoutes.post('/email/check', async (c) => {
     const patch = rowPatchFromResend(fresh);
     // Keep the first verified_at; a re-check must not move the date.
     if (existing.verified_at) delete (patch as { verified_at?: string }).verified_at;
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('workspace_domain')
       .update(patch)
       .eq('id', existing.id)
@@ -356,7 +355,7 @@ workspaceDomainRoutes.delete('/email', async (c) => {
       console.warn('[workspace-domain] resend delete', existing.host, e instanceof Error ? e.message : e);
     }
   }
-  const { error } = await adminClient.from('workspace_domain').delete().eq('id', existing.id);
+  const { error } = await tenantDb(ctx).from('workspace_domain').delete().eq('id', existing.id);
   if (error) {
     console.error('[workspace-domain] delete failed', error);
     return c.json({ error: error.message }, 500);

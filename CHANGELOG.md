@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.17] — 2026-10-17
+
+### Security, foundation 2a: the first module on tenantDb — a workspace's own domains (API)
+
+- The pilot of F2 (converting the service-role code to `tenantDb`), on a
+  small module nobody else is editing: `routes/workspace-domain.ts` and the
+  lookups in `lib/workspace-domain.ts`. Every query there now has the
+  workspace bound in by the accessor instead of by hand, or names why it may
+  cross workspaces. No response changes.
+- The five crossings, each a `serviceRole('<reason>')`: a host or slug is
+  unique on the whole platform, so "is this host taken?" (web and email),
+  "which workspace does this customer host serve?", "which workspace owns
+  this public slug?" and the CORS list of every verified host read across
+  workspaces on purpose, and only the owner's id or the host.
+- **Measured:** 1,715 → **1,697** raw service-role uses (142 → 140 files);
+  the baseline is lowered with it. `node apps/api/scripts/service-role-report.mjs`.
+- **Checked:** `workspace-domain-tenancy.int.test.ts` on staging, 5/5:
+  workspace A's admin lists none of B's domains, cannot remove B's web host
+  by naming it, removing "its" email domain leaves B's; the sender-domain
+  lookup answers only for the owner; and B's own admin still reads both and
+  removes its email domain through the converted code. Resend and Vercel are
+  never called by the test. Unit: `workspace-domain.test.ts`,
+  `tenant-origins.test.ts`, the boundary test. `tsc --noEmit` on the API.
+- Not checked: adding a domain end to end (it needs Resend or Vercel and a
+  paid plan); the converted insert paths are typechecked and exercised only
+  by the accessor's own tests.
+- Built on 2026-10-17 on an older base and never landed; rebuilt onto the
+  current staging (v1.277.16) and re-checked there: the int test 5/5 and the
+  API unit suite (1,339) pass, and the baseline was regenerated, not carried.
+
 ## [1.277.16] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 2, step 4, its proof: a contact's timeline per role, on staging's live rule (tests only)
