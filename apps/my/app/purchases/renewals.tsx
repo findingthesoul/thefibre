@@ -166,7 +166,7 @@ function RenewalRow({ r }: { r: MyRenewal }) {
         )}
       </p>
       {/* The card renewals are charged to — changed here, not on Stripe (P4). */}
-      {!r.managed_by_community && !r.unavailable && r.renews_at && !r.stops_at_period_end && <CardLine memberId={r.member_id} />}
+      {!r.managed_by_community && !r.unavailable && r.renews_at && !r.stops_at_period_end && <CardLine memberId={r.member_id} nudge />}
       {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
       {r.renews_at && (
         <ChangeMembership

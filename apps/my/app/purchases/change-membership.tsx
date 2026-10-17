@@ -233,7 +233,7 @@ export function ChangeMembership({
             <div className={NOTICE.info}>
               {quote.due_now_cents > 0 ? (
                 <p>
-                  {parts(t(locale, 'quote_pay_now'), {
+                  {parts(t(locale, quote.needs_card ? 'quote_pay_now_nocard' : 'quote_pay_now'), {
                     amount: <span className="font-medium text-ink">{money(quote.due_now_cents, quote.currency)}</span>,
                     vat: quote.tax_now_cents > 0 ? t(locale, 'quote_vat', { tax: money(quote.tax_now_cents, quote.currency) }) : '',
                   })}

@@ -45,7 +45,7 @@ if (ownerSpecs.length && !ownerOptIn) {
 }
 
 /** Specs that flip shared fixture state; see the 'exclusive' project. */
-const EXCLUSIVE = /(price-includes-vat|member-page-tiers|portal-files|member-addon|renewal-quiet|portal-find-me|shop|join-layout)\.spec\.ts/;
+const EXCLUSIVE = /(price-includes-vat|member-page-tiers|portal-files|member-addon|member-addon-no-card|renewal-quiet|portal-find-me|shop|join-layout)\.spec\.ts/;
 
 export default defineConfig({
   testDir: '.',

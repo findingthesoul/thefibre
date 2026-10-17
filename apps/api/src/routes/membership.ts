@@ -92,6 +92,7 @@ import { startConnect, verifyConnect } from '../lib/drive-connect.js';
 import { driveSetupState, serviceAccountEmail } from '../lib/drive.js';
 import { declineGoogleAccount, markGoogleAccountCreated, ownDomainAddress } from '../lib/google-account.js';
 import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
+import { renewalCardState } from '../lib/renewal-card.js';
 
 // ===========================================================================
 // Fibre Membership — the community-subscription API.
@@ -5085,7 +5086,23 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
         getWorkspaceBrand(m.workspace_id),
       ]);
       if (!person?.email) continue;
+      // No card for Stripe to charge at the renewal (a year paid by invoice):
+      // the reminder asks for one instead of saying "nothing to do". A failed
+      // read leaves the old wording rather than skipping the reminder.
+      let needsCard = false;
+      if (m.stripe_subscription_id) {
+        const stripe = stripeOrNull();
+        const account = stripe ? await workspaceStripeAccount(m.workspace_id) : null;
+        if (stripe && account) {
+          needsCard = await renewalCardState(stripe, account, m.stripe_subscription_id as string).then(
+            (r) => r.needs_card,
+            (e) => (console.warn('[membership/scheduler] card read failed for member', m.id, (e as Error).message), false),
+          );
+        }
+      }
       const msg = membershipRenewalReminder({
+        needsCard,
+        purchasesUrl: `${stackSurfaceUrl('my-portal', process.env)}/purchases`,
         name: person.first_name ?? 'there',
         communityName: ws?.name ?? 'the community',
         tierName: tier?.name ?? 'membership',

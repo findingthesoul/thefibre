@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.20] — 2026-10-17
+
+### A membership with no card to renew on asks for one before the date: in the reminder email and on Purchases (API + my.thread 0.36.0)
+
+- A member who paid the first year by invoice sits on a subscription that
+  Stripe charges automatically at its end, with nothing to charge. The
+  renewal would fail, the member would drop into grace and get a "payment
+  failed" email, while the reminder 14 days before had said "Nothing to
+  do if you'd like to continue — the renewal happens automatically."
+- **One rule, `lib/renewal-card.ts`:** a card is needed when the
+  subscription is going to renew (active, trialing or past due, not
+  stopping at the period end), Stripe collects automatically, and neither
+  the subscription nor the customer has a default payment method. A
+  subscription billed by invoice (`send_invoice`) needs none. The date is
+  the trial end, else the period end.
+- **The renewal reminder** asks, in all six languages, for a card before
+  the date, with a link to Purchases on the personal page, instead of
+  "nothing to do". With a card the email is unchanged. If Stripe can't be
+  read, the old wording goes out rather than no reminder.
+- **my.thread → Purchases:** the membership's row shows the same ask above
+  "No card on file · change" (`GET /me/payment-method/:memberId` gains a
+  `renewal` field, additive). It disappears once a card is saved.
+- **The Add or change window** no longer says "with the card on your
+  membership" when there is none.
+- Tests: `renewal-card.test.ts` (the rule), `renewal-reminder-card.test.ts`
+  (the email ×6 locales), `renewal-card.int.test.ts` (Stripe TEST: no card
+  / card / send_invoice), and `e2e/member-addon-no-card.spec.ts` (the
+  no-card window and the Purchases ask at 375, en + nl, on staging).
+
 ## [1.277.19] — 2026-10-17
 
 ### Security, F2: the person and organisation routes on the tenant accessor (API)

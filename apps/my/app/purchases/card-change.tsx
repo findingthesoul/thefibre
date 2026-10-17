@@ -21,6 +21,7 @@ import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { toLocale, type Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
 import { friendlyError } from '@/lib/errors';
+import { intlTag } from '@/lib/format';
 
 // Stripe's own form speaks the reader's language too. pt is Brazilian here,
 // as everywhere in this app (INTL_LOCALES.pt).
@@ -40,30 +41,58 @@ const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : '
 // The browser-side call, shared with the Google card (lib/membership-portal-client.ts).
 const api = portalCall;
 
-export function CardLine({ memberId }: { memberId: string }) {
+type Renewal = { needs_card: boolean; on: string | null };
+
+/** `nudge`: on the membership's own row, also ask for a card when the
+ *  renewal has none to charge (a year paid by invoice) — the same ask as the
+ *  renewal reminder email (API lib/renewal-card.ts). */
+export function CardLine({ memberId, nudge = false }: { memberId: string; nudge?: boolean }) {
   const [card, setCard] = useState<Card | undefined>(undefined);
+  const [renewal, setRenewal] = useState<Renewal | null>(null);
   const [open, setOpen] = useState(false);
   const locale = useLocale();
   useEffect(() => {
-    api<{ card: Card }>(`/me/payment-method/${memberId}`).then(
-      (r) => setCard(r.card),
+    api<{ card: Card; renewal?: Renewal }>(`/me/payment-method/${memberId}`).then(
+      (r) => {
+        setCard(r.card);
+        setRenewal(r.renewal ?? null);
+      },
       () => setCard(null),
     );
   }, [memberId]);
   if (card === undefined) return null;
+  const ask = nudge && !card && renewal?.needs_card && renewal.on;
   return (
-    <p className="mt-1 text-xs text-ink-subtle">
-      {card ? t(locale, 'card_line', { brand: brandName(card.brand), last4: card.last4 }) : t(locale, 'no_card')}
-      {PK && (
-        <>
-          {' · '}
-          <button type="button" onClick={() => setOpen(true)} className="underline underline-offset-2 hover:text-ink">
-            {t(locale, 'change')}
-          </button>
-        </>
+    <>
+      {ask && (
+        <p className={`${NOTICE.warning} mt-2`} role="status">
+          {t(locale, 'renew_add_card', {
+            date: new Intl.DateTimeFormat(intlTag(locale), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(new Date(renewal.on!)),
+          })}
+        </p>
       )}
-      {open && <ChangeCard memberId={memberId} onClose={() => setOpen(false)} onChanged={setCard} />}
-    </p>
+      <p className="mt-1 text-xs text-ink-subtle">
+        {card ? t(locale, 'card_line', { brand: brandName(card.brand), last4: card.last4 }) : t(locale, 'no_card')}
+        {PK && (
+          <>
+            {' · '}
+            <button type="button" onClick={() => setOpen(true)} className="underline underline-offset-2 hover:text-ink">
+              {t(locale, 'change')}
+            </button>
+          </>
+        )}
+        {open && (
+          <ChangeCard
+            memberId={memberId}
+            onClose={() => setOpen(false)}
+            onChanged={(c) => {
+              setCard(c);
+              if (c) setRenewal(null);
+            }}
+          />
+        )}
+      </p>
+    </>
   );
 }
 

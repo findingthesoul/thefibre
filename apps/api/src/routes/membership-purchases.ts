@@ -24,6 +24,7 @@ import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
 import { reconcileMemberAccess } from './membership.js';
 import { composeShop, withinCap, type ShopProductRow } from '../lib/shop.js';
+import { renewalNeedsCard } from '../lib/renewal-card.js';
 import {
   addAddon,
   addonNet,
@@ -624,7 +625,12 @@ membershipPurchaseRoutes.get('/me/payment-method/:memberId', async (c) => {
       const d = cust.invoice_settings?.default_payment_method;
       pm = d && typeof d === 'object' ? d : null;
     }
-    return c.json({ card: summarise(pm) });
+    // Whether the renewal will find a card, and by when (lib/renewal-card.ts):
+    // my.thread's card line asks for one the way the reminder email does.
+    const has = !!(pm || sub.default_source);
+    const cust = has ? null : ((await r.stripe.customers.retrieve(r.customer, {}, { stripeAccount: r.account })) as import('stripe').default.Customer);
+    const renewal = renewalNeedsCard({ ...sub, period_end: sub.items.data[0]?.current_period_end ?? null }, has || !!cust?.default_source);
+    return c.json({ card: summarise(pm), renewal });
   } catch (e) {
     console.error('[membership/purchases] card read failed', { member: r.m.id, message: (e as Error).message });
     return c.json({ error: 'could not read the card just now' }, 502);

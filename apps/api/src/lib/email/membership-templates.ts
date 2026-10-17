@@ -221,6 +221,16 @@ const CATALOG = {
     de: 'Wenn du dabeibleiben möchtest, musst du nichts tun — die Verlängerung passiert automatisch. Für Änderungen antworte einfach auf diese E-Mail.', // MT
     fr: 'Rien à faire si tu souhaites continuer — le renouvellement est automatique. Pour un changement, réponds simplement à cet e-mail.', // MT
   },
+  // In place of m_renew_nothing when the renewal has no card to charge
+  // (lib/renewal-card.ts): a member who paid the first year by invoice.
+  m_renew_add_card: {
+    en: 'To continue, please add a card before {date}: there is none on your membership yet, so the renewal cannot be charged. You can do it on your personal page, under Purchases{link}.',
+    nl: 'Wil je doorgaan, voeg dan vóór {date} een kaart toe: er staat nog geen kaart bij je lidmaatschap, dus de verlenging kan niet worden afgeschreven. Dat doe je op je persoonlijke pagina, onder Aankopen{link}.',
+    es: 'Para continuar, añade una tarjeta antes del {date}: todavía no hay ninguna en tu membresía, así que la renovación no se puede cobrar. Puedes hacerlo en tu página personal, en Compras{link}.', // MT
+    pt: 'Para continuar, adicione um cartão antes de {date}: ainda não há nenhum na sua associação, então a renovação não pode ser cobrada. Você pode fazer isso na sua página pessoal, em Compras{link}.', // MT
+    de: 'Wenn du dabeibleiben möchtest, füge bitte vor dem {date} eine Karte hinzu: Bei deiner Mitgliedschaft ist noch keine hinterlegt, daher kann die Verlängerung nicht abgebucht werden. Das geht auf deiner persönlichen Seite unter Käufe{link}.', // MT
+    fr: 'Pour continuer, ajoute une carte avant le {date} : il n’y en a pas encore sur ton adhésion, donc le renouvellement ne peut pas être prélevé. Tu peux le faire sur ta page personnelle, dans Achats{link}.', // MT
+  },
   m_failed_subject: {
     en: 'Payment issue with your {community} membership',
     nl: 'Betaalprobleem met je lidmaatschap van {community}',
@@ -692,6 +702,11 @@ export function membershipRenewalReminder(opts: {
   signatureHtml?: string | null;
   locale?: string | null;
   brand?: EmailBrand;
+  /** No card to charge at the renewal (lib/renewal-card.ts): ask for one,
+   *  instead of "nothing to do". */
+  needsCard?: boolean;
+  /** my.thread's Purchases page, linked from that ask. */
+  purchasesUrl?: string | null;
 }): { subject: string; html: string; text: string } {
   const loc = toLocale(opts.locale);
   const date = longDate(opts.renewsAt, loc);
@@ -710,11 +725,20 @@ export function membershipRenewalReminder(opts: {
     date,
     amount,
   });
-  const nothing = t(loc, 'm_renew_nothing');
+  const url = opts.purchasesUrl ?? null;
+  const nothing = opts.needsCard
+    ? t(loc, 'm_renew_add_card', { date, link: url ? `: ${url}` : '' })
+    : t(loc, 'm_renew_nothing');
+  const nothingHtml = opts.needsCard
+    ? t(loc, 'm_renew_add_card', {
+        date: `<strong>${escapeHtml(date)}</strong>`,
+        link: url ? `: <a href="${escapeHtml(url)}">${escapeHtml(url.replace(/^https?:\/\//, ''))}</a>` : '',
+      })
+    : escapeHtml(nothing);
   const body = `
     <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
     <p>${lineHtml}</p>
-    <p>${escapeHtml(nothing)}</p>${signatureHtmlBlock(opts.signatureHtml)}`;
+    <p>${nothingHtml}</p>${signatureHtmlBlock(opts.signatureHtml)}`;
   return {
     subject,
     html: shell(subject, body, opts.brand),

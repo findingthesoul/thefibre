@@ -4233,6 +4233,24 @@ const CATALOG = {
     de: 'Die Zahlung mit der Karte deiner Mitgliedschaft hat nicht geklappt. Prüfe die Karte und versuche es erneut; es wurde nichts hinzugefügt.', // MT
     fr: 'Le paiement n’a pas abouti avec la carte de votre adhésion. Vérifiez la carte et réessayez ; rien n’a été ajouté.', // MT
   },
+  // The card line on a renewing membership with no card (card-change.tsx).
+  renew_add_card: {
+    en: 'Add a card before {date}: your renewal is charged to it, and there is none on your membership yet.',
+    nl: 'Voeg vóór {date} een kaart toe: je verlenging wordt daarvan afgeschreven, en er staat nog geen kaart bij je lidmaatschap.',
+    es: 'Añade una tarjeta antes del {date}: tu renovación se cobra en ella y todavía no hay ninguna en tu membresía.', // MT
+    pt: 'Adicione um cartão antes de {date}: sua renovação é cobrada nele, e ainda não há nenhum na sua associação.', // MT
+    de: 'Füge vor dem {date} eine Karte hinzu: Deine Verlängerung wird davon abgebucht, und bei deiner Mitgliedschaft ist noch keine hinterlegt.', // MT
+    fr: 'Ajoute une carte avant le {date} : ton renouvellement y est prélevé, et il n’y en a pas encore sur ton adhésion.', // MT
+  },
+  // quote_pay_now without "with the card on your membership", for when there is none.
+  quote_pay_now_nocard: {
+    en: 'You pay {amount} now{vat}, for the rest of this period.',
+    nl: 'Je betaalt nu {amount}{vat}, voor de rest van deze periode.',
+    es: 'Pagas {amount} ahora{vat}, por el resto de este periodo.', // MT
+    pt: 'Você paga {amount} agora{vat}, pelo resto deste período.', // MT
+    de: 'Du zahlst jetzt {amount}{vat} für den Rest dieses Zeitraums.', // MT
+    fr: 'Tu paies {amount} maintenant{vat}, pour le reste de cette période.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;
