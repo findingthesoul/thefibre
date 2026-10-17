@@ -4030,6 +4030,16 @@ const CATALOG = {
     de: 'Deine Threads – Programm folgt bald', // MT
     fr: 'Tes threads — programme à venir', // MT
   },
+
+  // ── Calendar feed followed (calendar window skips invitations) ────────
+  cal_follows: {
+    en: "Your calendar follows this feed, so you won't get separate invitations.",
+    nl: 'Je agenda volgt deze feed, dus je krijgt geen losse uitnodigingen.',
+    es: 'Tu calendario sigue este feed, así que no recibirás invitaciones aparte.', // MT
+    pt: 'Seu calendário segue este feed, então você não receberá convites separados.', // MT
+    de: 'Dein Kalender folgt diesem Feed, deshalb bekommst du keine separaten Einladungen.', // MT
+    fr: 'Ton agenda suit ce flux, tu ne recevras donc pas d’invitations séparées.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.270.1] — 2026-10-17
+
+### my.thread → You → Calendar: "your calendar follows this feed, so you won't get separate invitations" (my.thread 0.32.4)
+
+- The calendar window (v1.270.0) sends no separate invitations to someone
+  whose calendar follows their feed. The card now says so, so a member
+  doesn't wait for invitations that never come.
+- Shown exactly when the window skips them: a live address (not stopped)
+  that a calendar has read within the last 14 days, the 14th day included.
+  `lib/calendar-follows.ts` mirrors `FEED_ACTIVE_DAYS` in
+  `apps/api/src/lib/calendar-window.ts`; six languages.
+- Tested: unit `calendar-follows` 6 with the clock pinned (inside, exactly
+  14 days, a second past, never read, stopped, unreadable date; under
+  TZ=UTC and Los Angeles); apps/my 92/92, typecheck clean. Rendered on a
+  local my.thread on this commit against staging at 375, as the rehearsal
+  fixture: its feed made through the card's own Subscribe. The line shows
+  at "read an hour ago", and is absent at 15 days and when never read. The
+  feed row was deleted afterwards (read back: 0 for the fixture).
+
 ## [1.270.0] — 2026-10-17
 
 ### Calendar invitations, slice 2: every participant holds the next six weeks of sessions — switched OFF until Sjoerd reads the dry run (API)
