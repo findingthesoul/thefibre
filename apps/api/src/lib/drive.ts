@@ -87,7 +87,7 @@ async function accessToken(sa: ServiceAccount): Promise<string> {
 
 export class DriveError extends Error {
   constructor(
-    readonly code: 'not_shared' | 'unavailable' | 'not_found' | 'drive_not_configured',
+    readonly code: 'not_shared' | 'unavailable' | 'not_found' | 'drive_not_configured' | 'too_large',
     message: string,
   ) {
     super(message);
@@ -178,10 +178,10 @@ export function descriptionProves(
 // Reading
 // ---------------------------------------------------------------------------
 
-export type DriveMeta = { id: string; name: string; mimeType: string; description?: string; parents?: string[]; trashed?: boolean };
+export type DriveMeta = { id: string; name: string; mimeType: string; description?: string; parents?: string[]; trashed?: boolean; size?: string };
 
 export async function folderMeta(id: string): Promise<DriveMeta> {
-  const f = await driveGet<DriveMeta>(`/files/${encodeURIComponent(id)}`, { fields: 'id,name,mimeType,description,parents,trashed' });
+  const f = await driveGet<DriveMeta>(`/files/${encodeURIComponent(id)}`, { fields: 'id,name,mimeType,description,parents,trashed,size' });
   if (f.trashed) throw new DriveError('not_shared', 'trashed');
   return f;
 }
@@ -275,7 +275,22 @@ export type FolderListing = {
 };
 
 const LIST_TTL = 2 * 60_000;
+/** Bounded (coordinator, 2026-10-17): a busy member browsing many folders
+ *  cannot grow this forever. A Map keeps insertion order, so the first key
+ *  is the oldest. */
+export const LIST_CACHE_MAX = 500;
 const listCache = new Map<string, { at: number; value: FolderListing }>();
+function remember(key: string, value: FolderListing): void {
+  listCache.delete(key);
+  listCache.set(key, { at: Date.now(), value });
+  while (listCache.size > LIST_CACHE_MAX) listCache.delete(listCache.keys().next().value as string);
+}
+/** Tests only. */
+export const _listCacheSize = (): number => listCache.size;
+/** Tests only: put a listing straight into the cache. */
+export function _remember(key: string, value: FolderListing): void {
+  remember(key, value);
+}
 
 /**
  * One folder under a bound root, for a member already admitted. `folderId`
@@ -306,7 +321,7 @@ export async function listFolder(workspaceId: string, rootId: string, folderId?:
       items: orderItems(await children(here.id), locale),
       limits: DRIVE_LIMITS,
     };
-    listCache.set(key, { at: Date.now(), value });
+    remember(key, value);
     return value;
   } catch (e) {
     // Google busy: the last listing we had, if any, rather than nothing.
@@ -318,4 +333,77 @@ export async function listFolder(workspaceId: string, rootId: string, folderId?:
 /** The stack's service-account address, for "share it with …". */
 export function serviceAccountEmail(): string | null {
   return driveServiceAccount()?.client_email ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Downloads (slice 3)
+//
+// The member never gets a Drive URL. my.thread asks the API (with the
+// member's session) for a token naming the workspace, the entry, the file and
+// the member; the browser is sent to the API's own stream URL with it; the
+// stream re-admits the member and re-walks the file's parents to the bound
+// root before a byte moves. Sixty seconds, so a copied link dies quickly.
+// ---------------------------------------------------------------------------
+
+export const TOKEN_SECONDS = 60;
+
+function downloadKey(env: Record<string, string | undefined>): Buffer {
+  const secret = env.SSO_INTERNAL_SECRET;
+  if (!secret) throw new Error('SSO_INTERNAL_SECRET is not set');
+  return createHmac('sha256', secret).update('drive-download-v1').digest();
+}
+
+/** w = workspace, d = member-page entry, f = Drive file, p = the PERSON row
+ *  that admitted the member, x = expiry. No email and nothing else personal:
+ *  this rides in a URL, which ends up in history, access logs and
+ *  screenshots (coordinator, 2026-10-17). The email is looked up server-side
+ *  from p when the file is served. */
+export type DownloadClaim = { w: string; d: string; f: string; p: string; x: number };
+
+export function signDownload(claim: Omit<DownloadClaim, 'x'>, now = Date.now(), env: Record<string, string | undefined> = process.env): string {
+  const body = Buffer.from(JSON.stringify({ ...claim, x: now + TOKEN_SECONDS * 1000 })).toString('base64url');
+  const mac = createHmac('sha256', downloadKey(env)).update(body).digest('base64url');
+  return `${body}.${mac}`;
+}
+
+/** The claim, or null when forged, malformed or expired. */
+export function readDownload(token: unknown, now = Date.now(), env: Record<string, string | undefined> = process.env): DownloadClaim | null {
+  if (typeof token !== 'string' || token.length > 2000) return null;
+  const [body, mac] = token.split('.');
+  if (!body || !mac) return null;
+  const want = Buffer.from(createHmac('sha256', downloadKey(env)).update(body).digest('base64url'));
+  const got = Buffer.from(mac);
+  if (want.length !== got.length || !timingSafeEqual(want, got)) return null;
+  let c: DownloadClaim;
+  try {
+    c = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as DownloadClaim;
+  } catch {
+    return null;
+  }
+  if (typeof c.x !== 'number' || c.x < now) return null;
+  if (![c.w, c.d, c.f, c.p].every((v) => typeof v === 'string' && v.length > 0)) return null;
+  return c;
+}
+
+/** The name the browser saves: an export gets ".pdf"; nothing that could
+ *  break a header. */
+export function downloadName(name: string, exportAs: 'pdf' | null): string {
+  const clean = name.replace(/[\r\n"\\/]+/g, ' ').trim().slice(0, 180) || 'file';
+  return exportAs === 'pdf' && !/\.pdf$/i.test(clean) ? `${clean}.pdf` : clean;
+}
+
+/** Drive's bytes for one file, as a stream: the file itself, or its PDF. */
+export async function driveStream(item: DriveItem): Promise<Response> {
+  const sa = driveServiceAccount();
+  if (!sa) throw new DriveError('drive_not_configured', 'GOOGLE_DRIVE_SA_JSON is not set');
+  const path = item.export_as === 'pdf'
+    ? `${API}/files/${encodeURIComponent(item.id)}/export?mimeType=application/pdf`
+    : `${API}/files/${encodeURIComponent(item.id)}?alt=media&supportsAllDrives=true`;
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${await accessToken(sa)}` } });
+  if (res.ok) return res;
+  const text = await res.text().catch(() => '');
+  // Google's own export limit (10 MB) arrives as a 403 with this reason.
+  if (res.status === 403 && /exportSizeLimitExceeded/.test(text)) throw new DriveError('too_large', 'export too large');
+  if (res.status === 404 || res.status === 403) throw new DriveError('not_shared', `drive ${res.status}`);
+  throw new DriveError('unavailable', `drive ${res.status}`);
 }

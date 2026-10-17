@@ -19,12 +19,19 @@ import {
   DRIVE_ID,
   DriveError,
   FOLDER_MIME,
+  chainToRoot,
   descriptionProves,
+  downloadName,
+  driveStream,
   folderIdFromUrl,
   folderMeta,
   issueCode,
+  readDownload,
   serviceAccountEmail,
+  signDownload,
+  toItem,
 } from './drive.js';
+import { publicApiUrl } from './public-url.js';
 import { addDriveDocument, isDrive, memberCommunities, readMemberPage, visibleTo, type DriveDocument } from './member-page.js';
 
 export type ConnectError =
@@ -109,6 +116,10 @@ export async function verifyConnect(ws: string, userId: string | null, folderId:
  *  answer for "not a member", "not shown to you", "no such entry" and "the
  *  folder is no longer this community's". */
 export async function admittedDriveEntry(email: string, ws: string, docId: string): Promise<DriveDocument | null> {
+  return (await admitted(email, ws, docId))?.doc ?? null;
+}
+
+async function admitted(email: string, ws: string, docId: string): Promise<{ doc: DriveDocument; personId: string } | null> {
   const mine = (await memberCommunities(email)).find((m) => m.workspace_id === ws);
   if (!mine) return null;
   const page = await readMemberPage(ws);
@@ -116,5 +127,109 @@ export async function admittedDriveEntry(email: string, ws: string, docId: strin
   if (!doc || !isDrive(doc)) return null;
   if (!visibleTo(doc, { tier_ids: mine.tier_ids, category_ids: mine.category_ids })) return null;
   if ((await boundTo(doc.folder_id)) !== ws) return null;
-  return doc;
+  return { doc, personId: mine.person_id };
+}
+
+// ---------------------------------------------------------------------------
+// Downloads (slice 3)
+// ---------------------------------------------------------------------------
+
+export type DownloadError =
+  | { status: 404; code: 'not_found' }
+  | { status: 409; code: 'not_shared' | 'not_exportable' }
+  | { status: 413; code: 'too_large' }
+  | { status: 503; code: 'unavailable' | 'drive_not_configured' };
+
+function downloadFailure(e: unknown): DownloadError {
+  if (e instanceof DriveError) {
+    if (e.code === 'not_found') return { status: 404, code: 'not_found' };
+    if (e.code === 'not_shared') return { status: 409, code: 'not_shared' };
+    if (e.code === 'too_large') return { status: 413, code: 'too_large' };
+    if (e.code === 'drive_not_configured') return { status: 503, code: 'drive_not_configured' };
+    return { status: 503, code: 'unavailable' };
+  }
+  throw e;
+}
+
+/** The file, IF it sits under this entry's bound root and may be opened. */
+type Under = { error: DownloadError } | { item: ReturnType<typeof toItem> };
+async function fileUnderRoot(doc: DriveDocument, fileId: string): Promise<Under> {
+  if (!DRIVE_ID.test(fileId)) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  let chain;
+  try {
+    chain = await chainToRoot(doc.folder_id, fileId);
+  } catch (e) {
+    return { error: downloadFailure(e) };
+  }
+  if (!chain || chain.length < 2) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  const meta = chain[chain.length - 1]!;
+  if (meta.mimeType === FOLDER_MIME) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  const item = toItem({ id: meta.id, name: meta.name, mimeType: meta.mimeType, ...(meta.size !== undefined ? { size: meta.size } : {}) });
+  if (item.reason === 'not_exportable') return { error: { status: 409, code: 'not_exportable' } as DownloadError };
+  if (item.reason === 'too_large') return { error: { status: 413, code: 'too_large' } as DownloadError };
+  return { item };
+}
+
+/** POST …/download: a 60-second link to the API's own stream. */
+export async function prepareDownload(email: string, ws: string, docId: string, fileId: unknown, now = Date.now()) {
+  const a = await admitted(email, ws, docId);
+  if (!a) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  if (typeof fileId !== 'string') return { error: { status: 404, code: 'not_found' } as DownloadError };
+  const f = await fileUnderRoot(a.doc, fileId);
+  if ('error' in f) return { error: f.error };
+  const token = signDownload({ w: ws, d: docId, f: fileId, p: a.personId }, now);
+  return {
+    url: `${publicApiUrl()}/api/v1/me/portal/drive-download?token=${encodeURIComponent(token)}`,
+    expires_at: new Date(now + 60_000).toISOString(),
+    filename: downloadName(f.item.name, f.item.export_as),
+    export_as: f.item.export_as,
+  };
+}
+
+/** GET drive-download?token: re-admit, re-walk, record, stream. */
+export async function serveDownload(token: unknown, now = Date.now()) {
+  const claim = readDownload(token, now);
+  if (!claim) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  // The token names a person row, never an address: find the address here,
+  // then admit exactly as the POST did.
+  const { data: person } = await adminClient
+    .from('person')
+    .select('email')
+    .eq('id', claim.p)
+    .eq('workspace_id', claim.w)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const email = (person?.email as string | null | undefined) ?? '';
+  if (!email) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  const a = await admitted(email, claim.w, claim.d);
+  if (!a) return { error: { status: 404, code: 'not_found' } as DownloadError };
+  const f = await fileUnderRoot(a.doc, claim.f);
+  if ('error' in f) return { error: f.error };
+  let body: Response;
+  try {
+    body = await driveStream(f.item);
+  } catch (e) {
+    return { error: downloadFailure(e) };
+  }
+  // Type + subject only (hard rule 5): which folder and which file, by id.
+  // A file's name is content and never enters the activity log.
+  await logDownload(claim.w, a.personId, `${a.doc.folder_id}/${claim.f}`.slice(0, 200));
+  return { body, filename: downloadName(f.item.name, f.item.export_as), contentType: f.item.export_as === 'pdf' ? 'application/pdf' : f.item.mime };
+}
+
+async function logDownload(ws: string, personId: string, subject: string): Promise<void> {
+  try {
+    const { data: app } = await adminClient.from('app').select('id').eq('slug', 'membership').single();
+    if (!app) return;
+    await adminClient.from('activity').insert({
+      workspace_id: ws,
+      person_id: personId,
+      app_id: app.id,
+      type: 'drive_file_downloaded',
+      subject,
+      occurred_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('[drive] download not logged (non-fatal)', e);
+  }
 }

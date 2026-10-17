@@ -83,3 +83,43 @@ describe('the service account', () => {
     expect(driveServiceAccount({ GOOGLE_DRIVE_SA_JSON: 'bm90IGpzb24=' })).toBeNull();
   });
 });
+
+describe('the download token (slice 3)', () => {
+  it('reads back what it signed, for 60 seconds', async () => {
+    const { readDownload, signDownload } = await import('./drive.js');
+    const t = signDownload({ w: WS, d: 'doc1', f: 'file1', p: 'person1' }, 1_000_000, ENV);
+    expect(readDownload(t, 1_000_000 + 59_000, ENV)).toMatchObject({ w: WS, d: 'doc1', f: 'file1', p: 'person1' });
+    expect(readDownload(t, 1_000_000 + 61_000, ENV)).toBeNull();
+  });
+  it('a changed claim, another key, or junk reads as nothing', async () => {
+    const { readDownload, signDownload } = await import('./drive.js');
+    const t = signDownload({ w: WS, d: 'doc1', f: 'file1', p: 'person1' }, 1_000_000, ENV);
+    const [, mac] = t.split('.');
+    const forged = `${Buffer.from(JSON.stringify({ w: WS, d: 'doc1', f: 'OTHER', p: 'person1', x: 9e15 })).toString('base64url')}.${mac}`;
+    expect(readDownload(forged, 1_000_000, ENV)).toBeNull();
+    expect(readDownload(t, 1_000_000, { SSO_INTERNAL_SECRET: 'another' })).toBeNull();
+    expect(readDownload('nope', 1_000_000, ENV)).toBeNull();
+    expect(readDownload(undefined, 1_000_000, ENV)).toBeNull();
+  });
+});
+
+describe('the saved name', () => {
+  it('an export gets .pdf; nothing that breaks a header survives', async () => {
+    const { downloadName } = await import('./drive.js');
+    expect(downloadName('Guide', 'pdf')).toBe('Guide.pdf');
+    expect(downloadName('Guide.PDF', 'pdf')).toBe('Guide.PDF');
+    expect(downloadName('a.jpg', null)).toBe('a.jpg');
+    expect(downloadName('evil"\r\nX-Header: 1', null)).toBe('evil X-Header: 1');
+    expect(downloadName('  ', null)).toBe('file');
+  });
+});
+
+describe('the listing cache is bounded', () => {
+  it('keeps at most LIST_CACHE_MAX entries, dropping the oldest', async () => {
+    const { LIST_CACHE_MAX, _listCacheSize, _remember, _resetDriveToken } = await import('./drive.js');
+    _resetDriveToken();
+    const v = { folder: { id: 'x', name: 'x' }, breadcrumbs: [], items: [], limits: DRIVE_LIMITS };
+    for (let i = 0; i < LIST_CACHE_MAX + 50; i++) _remember(`k${i}`, v);
+    expect(_listCacheSize()).toBe(LIST_CACHE_MAX);
+  });
+});

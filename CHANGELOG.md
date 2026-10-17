@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.266.0] — 2026-10-17
+
+### Drive folders, slice 3: open a file from a connected folder, streamed by the API (API)
+
+- `POST /me/portal/community/:ws/drive/:docId/download {file_id}` returns a
+  60-second link to the API's OWN stream URL
+  (`/api/v1/me/portal/drive-download?token=`), the filename and `export_as`.
+  my.thread redirects the browser there (builder 3), so no Drive URL ever
+  reaches the browser and big files never pass through Vercel.
+- The token carries ids only — workspace, entry, file, and the PERSON row that
+  admitted the member — never an email: it rides in a URL, which ends up in
+  history, access logs and screenshots. The address is looked up server-side
+  when the file is served.
+- The stream re-admits the member every time (membership, audience, binding)
+  and re-walks the file's parents to the BOUND root. So a forged token, a
+  token held by a member who has since lapsed, or another community's file
+  all answer 404.
+  - Ordinary files stream as they are, up to 250 MiB.
+  - Google Docs, Sheets, Slides and Drawings come as their PDF export. Past
+    Google's 10 MB export limit the answer is 413, in words.
+  - Every response is `Content-Disposition: attachment`, `nosniff`,
+    `no-store`.
+- Each download is one activity row, `drive_file_downloaded`, whose subject
+  is the folder and file IDS — never the file's name (hard rule 5: type +
+  subject, no content).
+- The listing cache is bounded at 500 entries (oldest out) — the
+  coordinator's note.
+- Tests: `drive.test.ts` (13: the token signs, expires after 60 s, refuses a
+  changed claim, another key and junk; the saved name; the cache cap) and
+  `drive-download.int.test.ts` (6) against staging with Google faked: the
+  URL is the API's; a Doc becomes a PDF; a file outside the root, a folder
+  and a form are refused; the bytes stream with the right headers and one
+  ids-only activity row; the export limit is 413; a forged token and a
+  lapsed member's token are 404.
+
 ## [1.265.0] — 2026-10-17
 
 ### Drive folders, slice 2: connect a folder with proof of control, and browse it (API)

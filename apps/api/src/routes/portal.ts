@@ -92,7 +92,7 @@ import { placesByThread } from '../lib/place-state.js';
 import { ensurePref } from '../lib/member-notify.js';
 import { communityView, memberCommunities, signedDocumentUrl } from '../lib/member-page.js';
 import { filesFor } from '../lib/portal-files.js';
-import { admittedDriveEntry } from '../lib/drive-connect.js';
+import { admittedDriveEntry, prepareDownload, serveDownload } from '../lib/drive-connect.js';
 import { DriveError, listFolder } from '../lib/drive.js';
 import {
   couldJoinFrom,
@@ -1331,6 +1331,47 @@ portalRoutes.get('/portal/community/:ws/drive/:docId', async (c) => {
     }
     throw e;
   }
+});
+
+// A 60-second link to one file of a connected folder. my.thread POSTs with
+// the member's session and redirects the browser to `url`, so the bytes come
+// from this API (Fly), never through a Next route, and no Drive URL ever
+// reaches the browser.
+portalRoutes.post('/portal/community/:ws/drive/:docId/download', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = (await c.req.json().catch(() => null)) as { file_id?: unknown } | null;
+  const r = await prepareDownload(email, c.req.param('ws'), c.req.param('docId'), body?.file_id);
+  if ('error' in r && r.error) return c.json({ error: r.error.code.replace('_', ' '), code: r.error.code }, r.error.status);
+  return c.json(r);
+});
+
+// The stream. The token IS the authority (no session, no X-App-ID: a browser
+// redirect carries neither); it is re-checked against the membership, the
+// audience, the binding and the bound root before a byte moves.
+portalRoutes.get('/portal/drive-download', async (c) => {
+  const r = await serveDownload(c.req.query('token'));
+  if ('error' in r && r.error) {
+    // A browser landed here: words, not JSON.
+    const words: Record<string, string> = {
+      not_found: 'This link has expired or is not yours. Go back to Files and open it again.',
+      not_shared: 'This folder is not available right now.',
+      not_exportable: 'This kind of file cannot be downloaded here.',
+      too_large: 'This file is too large to download here.',
+      unavailable: 'Google Drive did not answer. Try again in a minute.',
+      drive_not_configured: 'Google Drive is not set up here yet.',
+    };
+    return c.text(words[r.error.code] ?? 'Not available.', r.error.status, { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  }
+  const headers = new Headers({
+    'Content-Type': r.contentType || 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${r.filename.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(r.filename)}`,
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'private, no-store',
+  });
+  const len = r.body!.headers.get('content-length');
+  if (len) headers.set('Content-Length', len);
+  return new Response(r.body!.body, { status: 200, headers });
 });
 
 // ===========================================================================
