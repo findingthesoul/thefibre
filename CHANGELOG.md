@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.272.3] — 2026-10-17
+
+### Refund rules, slice 3b: the credit note reaches the member, as a PDF from the invoice's seller (API + Thread 4.23.1)
+
+- **The credit note as a document.** `buildInvoicePdf` gains a credit-note
+  mode rather than a second renderer: CREDIT NOTE, its own number, the invoice
+  it credits ("Credits: INV-…"), the reason under the line, every figure as
+  money going back (net, VAT, "TOTAL CREDITED"), "Refunded to: Card", no
+  "Thank you!". The figures are the note row's own (`creditNoteInvoice` →
+  the shared invoice model), so net + VAT are what Stripe's note said.
+- **`sendCreditNote` (routes/purchases.ts)**, beside `sendReceipt`, with the
+  invoice's rules: seller from `sellerForSale` (Thread sells as the person, a
+  membership as the community), sent as the workspace, our PDF attached. Once
+  per note: `emailed_at` is written, and a second call sends nothing.
+  It never fails the refund — the money and its record are already safe.
+- Sent on both paths that make a note: approving a cancellation with a refund,
+  and Reimburse on the invoices page. The organiser's dialog now reads
+  "Refunded. Credit note … was emailed to them." (or just the number when the
+  email did not go).
+- **A thread with no key moment starts at midnight in ITS zone**, not UTC,
+  when a refund rule counts back from it (`startInstant`, lib/refund-quote.ts;
+  B5's note on "until" dates). An Amsterdam thread on 1 Dec starts at
+  23:00 UTC on 30 Nov.
+- **Tests:**
+  - `invoice-pdf.test.ts`: the note's figures, number and date with the buyer
+    as invoiced; no VAT line without VAT; the "Credit note / Credits" rows;
+    one page with a 1,900-character reason (the PDF shows its first 280) and both addresses.
+  - `refund-quote.test.ts`: midnight in Amsterdam (winter + summer), New York
+    and UTC; an instant kept as is.
+  - `refund-part.int.test.ts` (Stripe TEST + staging DB): a real 50% refund,
+    then `sendCreditNote` → one email to the payer, subject "Credit note …",
+    one attachment that is a one-page PDF, `emailed_at` set; a second call →
+    `already`, nothing sent. The transport is recorded, not called.
+  - `thread-cancellation.int.test.ts` still passes.
+- **Not verified:** a real Resend delivery of a credit note (no key on the
+  integration rig; the staging API sends after deploy), and how the PDF looks
+  in a mail client — it was rendered and looked at locally.
+
 ## [1.272.2] — 2026-10-17
 
 ### my.thread: what cancelling would give back, beside "Request cancellation" (my.thread 0.33.0)

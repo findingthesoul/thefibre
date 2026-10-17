@@ -30,6 +30,49 @@ import {
 } from '@thefibre/shared';
 
 export type PdfInvoice = InvoicePurchase;
+
+/** What turns the document into a CREDIT NOTE (refund rules, slice 3b): the
+ *  invoice it corrects, and why. The figures come in through the purchase-
+ *  shaped row `creditNoteInvoice` builds, so the model stays the one
+ *  definition of what is on the page. */
+export type PdfCredit = {
+  /** The corrected invoice's number, when it had one. */
+  creditsNumber: string | null;
+  reason: string | null;
+};
+
+/** A credit note row, as the document needs it. */
+export type CreditNoteRow = {
+  number: string;
+  amount_cents: number;
+  net_cents: number;
+  vat_cents: number;
+  vat_rate: number | string | null;
+  created_at: string;
+};
+
+/** The purchase as a credit note shows it: the note's number, date and
+ *  figures (net + VAT = what is credited), the buyer as invoiced. Pure. */
+export function creditNoteInvoice(p: PdfInvoice, note: CreditNoteRow): PdfInvoice {
+  const rate = note.vat_rate === null ? null : Number(note.vat_rate);
+  return {
+    ...p,
+    item_label: `Refund — ${p.item_label}`,
+    amount_cents: note.amount_cents,
+    status: 'paid',
+    paid_at: note.created_at,
+    created_at: note.created_at,
+    billing: {
+      ...(p.billing ?? {}),
+      number: note.number,
+      period_end: null,
+      lines: null,
+      subtotal_cents: note.net_cents,
+      tax_cents: note.vat_cents,
+      tax_label: note.vat_cents > 0 ? (rate !== null ? `VAT ${rate}%` : (p.billing?.tax_label ?? 'VAT')) : null,
+    },
+  };
+}
 export type PdfSeller = InvoiceSeller & {
   legal_name: string;
   /** The workspace's brand mark. Raster only — see `fetchLogo`. */
@@ -140,9 +183,11 @@ export function buyerRows(
   m: { kind: InvoiceKind; number: string | null; buyer: { address: string | null; taxNo: string | null; email: string | null } },
   issuedOn: string,
   fit: (value: string) => string = (v) => v,
+  credit?: PdfCredit | null,
 ): [string, string][] {
   const rows: [string, string][] = [['Date issued:', issuedOn]];
-  if (m.number) rows.push([m.kind === 'receipt' ? 'Receipt No:' : 'Invoice No:', m.number]);
+  if (m.number) rows.push([credit ? 'Credit note:' : m.kind === 'receipt' ? 'Receipt No:' : 'Invoice No:', m.number]);
+  if (credit?.creditsNumber) rows.push(['Credits:', credit.creditsNumber]);
   if (m.buyer.address) {
     for (const part of m.buyer.address.split(', ').map((x) => x.trim()).filter(Boolean)) {
       rows.push(['', fit(part)]);
@@ -153,7 +198,7 @@ export function buyerRows(
   return rows;
 }
 
-export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promise<Buffer> {
+export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller, credit?: PdfCredit | null): Promise<Buffer> {
   // Fetched BEFORE the document opens: pdfkit's stream is synchronous, and
   // awaiting mid-draw would interleave with `doc.end()`.
   const logo = await fetchLogo(seller.logo_url);
@@ -166,6 +211,8 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
     doc.on('error', reject);
 
     const m = invoiceModel(inv, seller);
+    // A credit note states every figure as money going BACK.
+    const signed = (cents: number) => money(credit ? -cents : cents, m.currency);
     const date = new Date(m.dateIso);
     const L = 64;
     const W = doc.page.width - 128;
@@ -220,7 +267,7 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       .fillColor(INK)
       .font('Helvetica-Bold')
       .fontSize(TITLE_SIZE)
-      .text(m.kind === 'receipt' ? 'RECEIPT' : 'INVOICE', titleX, titleY, {
+      .text(credit ? 'CREDIT NOTE' : m.kind === 'receipt' ? 'RECEIPT' : 'INVOICE', titleX, titleY, {
         width: W - (titleX - L),
         characterSpacing: 3,
       });
@@ -278,6 +325,7 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       m,
       date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       (v) => fitOneLine(doc, v, colW - 68),
+      credit,
     );
     leftRows.forEach(([label, value], i) => pair(label, value, row + i));
 
@@ -331,6 +379,10 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       width: W * 0.62,
     });
     let lineBottom = doc.y;
+    if (credit?.reason) {
+      doc.font('Helvetica').fontSize(8.5).fillColor(MUTED).text(credit.reason.length > 280 ? `${credit.reason.slice(0, 279)}…` : credit.reason, L, doc.y + 2, { width: W * 0.62 });
+      lineBottom = doc.y;
+    }
     if (m.line.serviceUntilIso) {
       doc
         .font('Helvetica')
@@ -349,13 +401,13 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       lineBottom = doc.y;
     }
     doc.fillColor(INK);
-    amountAt(money((m.lines.length > 1 ? m.lines[0]!.amountCents : m.line.amountCents), m.currency), y, false, 10.5);
+    amountAt(signed(m.lines.length > 1 ? m.lines[0]!.amountCents : m.line.amountCents), y, false, 10.5);
     y = Math.max(lineBottom, y + 14) + 22;
     // The basket: the further lines, one row each (the first is above).
     for (const extra of m.lines.length > 1 ? m.lines.slice(1) : []) {
       doc.font('Helvetica').fontSize(10.5).fillColor(INK).text(extra.label, L, y - 10, { width: W * 0.62 });
       const bottom = doc.y;
-      amountAt(money(extra.amountCents, m.currency), y - 10, false, 10.5);
+      amountAt(signed(extra.amountCents), y - 10, false, 10.5);
       y = Math.max(bottom, y + 4) + 16;
     }
 
@@ -367,7 +419,7 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
         .fillColor(SUBTLE)
         .text(m.totals.tax.label ?? 'VAT', L, y, { width: W * 0.62 });
       doc.fillColor(SUBTLE);
-      amountAt(money(m.totals.tax.amountCents, m.currency), y, false, 9);
+      amountAt(signed(m.totals.tax.amountCents), y, false, 9);
     }
 
     // ── Foot band ──────────────────────────────────────────────────────────
@@ -386,9 +438,9 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
 
     let by = bandTop + 42;
     const third = W / 3;
-    caps('PAID WITH', L, by, third, 'left');
+    caps(credit ? 'REFUNDED TO' : 'PAID WITH', L, by, third, 'left');
     caps('DATE', L + third, by, third, 'left');
-    caps('TOTAL', L, by, W, 'right');
+    caps(credit ? 'TOTAL CREDITED' : 'TOTAL', L, by, W, 'right');
     by += 13;
 
     // A rule under each label, as in the reference: it is what turns three
@@ -427,7 +479,7 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
     // document has.
     doc.fillColor(SUM);
     amountAt(
-      `${m.currency} ${money(m.totals.totalCents, m.currency).replace(/^[^\d-]+/, '')}`,
+      `${m.currency} ${credit ? '-' : ''}${money(m.totals.totalCents, m.currency).replace(/^[^\d-]+/, '')}`,
       by - 3,
       true,
       20,
@@ -449,12 +501,15 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
     };
 
     const thanksY = bandTop + 148;
-    heart(L, thanksY + 11, 12, SUM);
-    doc
-      .font('Helvetica')
-      .fontSize(11)
-      .fillColor(INK)
-      .text('Thank you!', L + 18, thanksY, { width: W * 0.5, lineBreak: false });
+    // "Thank you!" is for money received; a credit note gives it back.
+    if (!credit) {
+      heart(L, thanksY + 11, 12, SUM);
+      doc
+        .font('Helvetica')
+        .fontSize(11)
+        .fillColor(INK)
+        .text('Thank you!', L + 18, thanksY, { width: W * 0.5, lineBreak: false });
+    }
 
     // The seller's VAT number, not a hosting note: on a tax document the
     // registration is what belongs at the foot (Sjoerd, 2026-09-24).

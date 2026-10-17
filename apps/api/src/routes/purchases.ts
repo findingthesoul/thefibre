@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { appUrl, ENTITY, invoiceModel, type InvoicePurchase } from '@thefibre/shared';
-import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
+import { buildInvoicePdf, creditNoteInvoice, type CreditNoteRow, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { getWorkspaceBrand, senderOf, workspaceSender } from '../lib/workspace-brand.js';
 import { publicOriginFor } from '../lib/public-origin.js';
 import { userClient, adminClient } from '../db.js';
@@ -497,6 +497,125 @@ export async function sendReceipt(
   return { ok: true };
 }
 
+/** The credit-note email body (refund rules, slice 3b): what was given back,
+ *  for what, against which invoice. The figures are the note's own, through
+ *  the same model as every receipt (`creditNoteInvoice` → invoiceModel). */
+export function creditNoteHtml(
+  p: ReceiptPurchase,
+  note: CreditNoteRow & { reason: string | null },
+  seller?: SellerDetails,
+  brand?: { logoUrl?: string | null; name?: string | null },
+): string {
+  const credited = creditNoteInvoice(p as unknown as PdfInvoice, note);
+  const m = invoiceModel(credited, seller ?? undefined);
+  const fmt = (cents: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: m.currency }).format(-cents / 100);
+  const date = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+    new Date(m.dateIso),
+  );
+  const row = (label: string, value: string) =>
+    `<tr>
+       <td style="padding:8px 0;font-size:13px;color:#6b7280;">${escapeHtml(label)}</td>
+       <td style="padding:8px 0;font-size:13px;color:#171717;text-align:right;">${escapeHtml(value)}</td>
+     </tr>`;
+  const invoiceNo = (p.billing as { number?: string | null } | null | undefined)?.number ?? null;
+  return shell(
+    'Credit note',
+    `<p style="font-size:15px;line-height:1.6;margin:0 0 6px;">Hi ${escapeHtml(p.payer_name.split(/\s+/)[0] ?? '')},</p>
+     <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:0 0 20px;">${
+       m.seller.name ? `<span style="color:#171717;">${escapeHtml(m.seller.name)}</span> has refunded` : 'Refunded'
+     } part or all of your payment. The credit note is attached.</p>
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+            style="border:1px solid #e5e5e2;border-radius:10px;border-collapse:separate;padding:20px 24px;">
+       <tr>
+         <td colspan="2" style="padding:0 0 12px;border-bottom:1px solid #e5e5e2;">
+           <span style="font-size:15px;font-weight:600;color:#171717;">${escapeHtml(m.line.label)}</span>
+         </td>
+       </tr>
+       ${row('Credit note', note.number)}
+       ${invoiceNo ? row('Credits invoice', invoiceNo) : ''}
+       ${row('Date', date)}
+       ${row('Refunded to', p.method === 'stripe' ? 'Card' : 'By invoice')}
+       ${note.reason ? row('Reason', note.reason) : ''}
+       ${m.seller.taxNo ? row('Tax / VAT no. (seller)', m.seller.taxNo) : ''}
+       ${m.totals.tax ? row('Subtotal', fmt(m.totals.subtotalCents)) : ''}
+       ${m.totals.tax ? row(m.totals.tax.label ?? 'VAT', fmt(m.totals.tax.amountCents)) : ''}
+       <tr>
+         <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:14px;font-weight:600;color:#171717;">Total credited</td>
+         <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:18px;font-weight:600;color:#171717;text-align:right;">${fmt(
+           m.totals.totalCents,
+         )}</td>
+       </tr>
+     </table>`,
+    brand ?? undefined,
+  );
+}
+
+/**
+ * Email the payer their CREDIT NOTE, our PDF attached (refund rules, slice
+ * 3b). The invoice's own seller rule (sellerForSale: Thread and Meet sell as
+ * the person, a membership as the community) and its sender (the workspace).
+ * Once per note: `emailed_at` is the delivery fact the note's final-ness
+ * guard still allows to be written, and a second call answers `already`.
+ * Never throws — the money and its record are already safe when this runs.
+ */
+export async function sendCreditNote(
+  noteId: string,
+): Promise<{ ok: true; already?: true } | { error: string; code: number }> {
+  try {
+    const { data: note } = await adminClient
+      .from('purchase_credit_note')
+      .select('id, workspace_id, purchase_id, number, amount_cents, net_cents, vat_cents, vat_rate, reason, created_at, emailed_at')
+      .eq('id', noteId)
+      .maybeSingle();
+    if (!note) return { error: 'credit note not found', code: 404 };
+    if (note.emailed_at) return { ok: true, already: true };
+    const { data: purchase } = await adminClient
+      .from('purchase')
+      .select(PURCHASE_SELECT)
+      .eq('id', note.purchase_id as string)
+      .eq('workspace_id', note.workspace_id as string)
+      .maybeSingle();
+    if (!purchase) return { error: 'purchase not found', code: 404 };
+    const p = purchase as unknown as ReceiptPurchase & { organiser_user_id?: string | null; payer_email: string | null };
+    if (!p.payer_email) return { error: 'no payer email on file', code: 409 };
+    const workspaceId = note.workspace_id as string;
+    const seller = await sellerForSale(
+      await appSlugOfPurchase(purchase as Record<string, unknown>),
+      workspaceId,
+      p.organiser_user_id ?? null,
+    );
+    const brand = await getWorkspaceBrand(workspaceId).catch(() => null);
+    const row = note as unknown as CreditNoteRow & { reason: string | null };
+
+    let attachments: { filename: string; content: string }[] | undefined;
+    try {
+      const pdf = await buildInvoicePdf(
+        creditNoteInvoice(purchase as unknown as PdfInvoice, row),
+        { legal_name: seller?.legal_name ?? '', ...(seller ?? {}) },
+        { creditsNumber: (purchase as unknown as PdfInvoice).billing?.number ?? null, reason: row.reason },
+      );
+      attachments = [{ filename: `credit-note-${row.number.replace(/[^A-Za-z0-9-]/g, '')}.pdf`, content: pdf.toString('base64') }];
+    } catch (e) {
+      console.error('[purchases] credit note pdf failed — sending without attachment', e);
+    }
+
+    await sendEmail({
+      to: p.payer_email,
+      subject: `Credit note ${row.number} — ${p.item_label}`,
+      html: creditNoteHtml(p, row, seller, brand ?? undefined),
+      text: `Your credit note ${row.number} for ${p.item_label} is attached.`,
+      ...senderOf(brand),
+      ...(attachments ? { attachments } : {}),
+    });
+    await adminClient.from('purchase_credit_note').update({ emailed_at: new Date().toISOString() }).eq('id', noteId);
+    return { ok: true };
+  } catch (e) {
+    console.error('[purchases] credit note email failed', { note: noteId, e: (e as Error).message });
+    return { error: 'sending failed — try again', code: 500 };
+  }
+}
+
 // GET /api/v1/purchases/:id/pdf — the FIBRE's invoice as a PDF, drawn from
 // the ledger row ("Download PDF opens Stripe" — it must not). Platform rows
 // carry the platform as seller; app sales carry the resolved seller SPoT.
@@ -623,7 +742,8 @@ purchasesRoutes.post('/:id/refund', async (c) => {
         done.code === 'unrecorded' || done.code === 'stripe' ? 502 : done.code === 'not_configured' ? 503 : 409,
       );
     }
-    return c.json({ ok: true, credit_note: done.note });
+    const mailed = await sendCreditNote(done.note.id);
+    return c.json({ ok: true, credit_note: { ...done.note, emailed: 'ok' in mailed } });
   }
   const done = await reimbursePurchase(r.purchase as unknown as ReimbursablePurchase, r.appSlug);
   if ('error' in done) return c.json({ error: done.error }, done.code);

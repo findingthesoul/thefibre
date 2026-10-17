@@ -22,6 +22,7 @@
 import { adminClient } from '../db.js';
 import { invalidRule, refundFor, type RefundQuote, type RefundRule } from './refund-rules.js';
 import { loadThreadDates } from './thread-dates.js';
+import { zonedTimeToUtc } from './availability/timezone.js';
 
 export type RuleSource = 'thread' | 'workspace' | null;
 
@@ -45,10 +46,22 @@ export async function effectiveRefundRule(threadId: string): Promise<{ rule: Ref
 /** When the thread starts, for counting back: its first key moment, else
  *  the start of its first day. Null when it has neither. */
 export async function threadStart(threadId: string): Promise<Date | null> {
-  const d = (await loadThreadDates([threadId])).get(threadId);
-  const s = d?.event?.start ?? d?.period.start ?? null;
+  const [d, { data: t }] = await Promise.all([
+    loadThreadDates([threadId]).then((m) => m.get(threadId)),
+    adminClient.from('thread_thread').select('timezone').eq('id', threadId).maybeSingle(),
+  ]);
+  return startInstant(d?.event?.start ?? d?.period.start ?? null, (t?.timezone as string | null) || 'Europe/Amsterdam');
+}
+
+/** A start as an instant. A bare date (a thread with no key moment) starts at
+ *  midnight IN THE THREAD'S ZONE, not UTC — "14 days before" an Amsterdam
+ *  thread on 1 Dec ends at 00:00 Amsterdam on 17 Nov, an hour before
+ *  midnight UTC (refund rules, slice 3b; B5's note on "until" phrasing). */
+export function startInstant(s: string | null, timeZone: string): Date | null {
   if (!s) return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00.000Z`) : new Date(s);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return new Date(s);
+  return zonedTimeToUtc(Number(m[1]), Number(m[2]), Number(m[3]), 0, 0, timeZone);
 }
 
 /** The paid amount for a place, from the ledger. */

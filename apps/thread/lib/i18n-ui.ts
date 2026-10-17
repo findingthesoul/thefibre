@@ -4112,6 +4112,14 @@ const CATALOG = {
     de: 'Sag, warum die Erstattung von der Regel abweicht; es steht auf der Gutschrift.', // MT
     fr: 'Indiquez pourquoi le remboursement diffère de la règle ; cela figure sur l’avoir.', // MT
   },
+  cancel_req_refunded_note_sent: {
+    en: 'Refunded. Credit note {number} was emailed to them.',
+    nl: 'Terugbetaald. Creditnota {number} is naar hen gemaild.',
+    es: 'Reembolsado. La nota de crédito {number} se les envió por correo.', // MT
+    pt: 'Reembolsado. A nota de crédito {number} foi-lhes enviada por email.', // MT
+    de: 'Erstattet. Die Gutschrift {number} wurde ihnen per E-Mail geschickt.', // MT
+    fr: 'Remboursé. L’avoir {number} leur a été envoyé par email.', // MT
+  },
   cancel_req_refunded_note: {
     en: 'Refunded. Credit note {number}.',
     nl: 'Terugbetaald. Creditnota {number}.',

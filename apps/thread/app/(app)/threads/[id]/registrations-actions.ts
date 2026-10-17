@@ -223,11 +223,11 @@ export async function approveCancellation(
    *  reason when it is not the rule's. Null = no refund. */
   refund: { amount_cents: number; reason: string | null } | null,
 ): Promise<
-  | { ok: true; refunded_cents: number | null; refund_error: string | null; credit_note: { id: string; number: string } | null }
+  | { ok: true; refunded_cents: number | null; refund_error: string | null; credit_note: { id: string; number: string; emailed?: boolean } | null }
   | { ok: false; error: string }
 > {
   try {
-    const r = await apiFetch<{ refunded_cents: number | null; refund_error: string | null; credit_note?: { id: string; number: string } | null }>(
+    const r = await apiFetch<{ refunded_cents: number | null; refund_error: string | null; credit_note?: { id: string; number: string; emailed?: boolean } | null }>(
       `/api/v1/thread/cancellation-requests/${encodeURIComponent(id)}/approve`,
       { method: 'POST', body: JSON.stringify(refund ? { amount_cents: refund.amount_cents, reason: refund.reason } : {}) },
     );

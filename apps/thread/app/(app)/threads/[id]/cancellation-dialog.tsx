@@ -47,6 +47,7 @@ export function CancellationDialog({
   const amountOk = Number.isFinite(amountCents) && amountCents >= 0 && amountCents <= remaining;
   const differs = !!quote && amountCents !== ruleCents;
   const [noteNumber, setNoteNumber] = useState<string | null>(null);
+  const [noteEmailed, setNoteEmailed] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +76,10 @@ export function CancellationDialog({
       return;
     }
     if (r.credit_note) {
-      // Until the credit note is mailed (slice 3b), the organiser sees its number.
+      // The member is emailed the note as a PDF (slice 3b); the organiser
+      // sees its number, and whether the email went.
       setNoteNumber(r.credit_note.number);
+      setNoteEmailed(!!r.credit_note.emailed);
       onDecided();
       return;
     }
@@ -123,7 +126,7 @@ export function CancellationDialog({
       {refundFailed ? (
         <p className={NOTICE.warning}>{t(locale, 'cancel_req_refund_failed', { error: refundFailed })}</p>
       ) : noteNumber ? (
-        <p className={NOTICE.success}>{t(locale, 'cancel_req_refunded_note', { number: noteNumber })}</p>
+        <p className={NOTICE.success}>{t(locale, noteEmailed ? 'cancel_req_refunded_note_sent' : 'cancel_req_refunded_note', { number: noteNumber })}</p>
       ) : (
         <>
           <p className="text-sm text-ink-subtle">{t(locale, 'cancel_req_reason')}</p>

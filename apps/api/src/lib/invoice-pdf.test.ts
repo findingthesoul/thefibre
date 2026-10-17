@@ -7,7 +7,7 @@
 // footer. Nothing in a typecheck can see that — only a rendered page count
 // can, which is why this test renders.
 import { describe, expect, it } from 'vitest';
-import { buildInvoicePdf, type PdfInvoice, type PdfSeller, buyerRows } from './invoice-pdf.js';
+import { buildInvoicePdf, creditNoteInvoice, type PdfInvoice, type PdfSeller, buyerRows } from './invoice-pdf.js';
 
 /** pdfkit writes one `/Type /Page` object per page (and `/Type /Pages` once
  *  for the tree, which the word boundary keeps out). */
@@ -146,5 +146,42 @@ describe('buyerRows — which fields reach the document', () => {
       '20 Sept 2026',
     );
     expect(rows).toEqual([['Date issued:', '20 Sept 2026']]);
+  });
+});
+
+describe('the credit note (refund rules, slice 3b)', () => {
+  const NOTE = { number: 'INV-0042-CN-01', amount_cents: 3025, net_cents: 2500, vat_cents: 525, vat_rate: '21.00', created_at: '2026-10-17T10:00:00Z' };
+  const INVOICED = { ...PURCHASE, amount_cents: 6050, billing: { number: 'INV-0042', company: 'Acme BV', tax_no: 'NL1', subtotal_cents: 5000, tax_cents: 1050, tax_label: 'VAT 21%', period_end: '2027-01-01', lines: [{ label: 'x', net_cents: 5000 }] } } as unknown as PdfInvoice;
+
+  it('states the note’s own figures, number and date; the buyer as invoiced', () => {
+    const c = creditNoteInvoice(INVOICED, NOTE);
+    expect(c).toMatchObject({ amount_cents: 3025, paid_at: NOTE.created_at, status: 'paid', item_label: 'Refund — Community membership' });
+    expect(c.billing).toMatchObject({ number: 'INV-0042-CN-01', subtotal_cents: 2500, tax_cents: 525, tax_label: 'VAT 21%', company: 'Acme BV', tax_no: 'NL1', lines: null, period_end: null });
+  });
+
+  it('no VAT on the note → no VAT line', () => {
+    const c = creditNoteInvoice(INVOICED, { ...NOTE, amount_cents: 2000, net_cents: 2000, vat_cents: 0, vat_rate: null });
+    expect(c.billing).toMatchObject({ subtotal_cents: 2000, tax_cents: 0, tax_label: null });
+  });
+
+  it('names itself a credit note and the invoice it credits', () => {
+    const rows = buyerRows({ kind: 'receipt', number: 'INV-0042-CN-01', buyer: { address: null, taxNo: null, email: null } }, '17 Oct 2026', undefined, {
+      creditsNumber: 'INV-0042',
+      reason: null,
+    });
+    expect(rows).toEqual([
+      ['Date issued:', '17 Oct 2026'],
+      ['Credit note:', 'INV-0042-CN-01'],
+      ['Credits:', 'INV-0042'],
+    ]);
+  });
+
+  it('is one page, with a long reason and both addresses', async () => {
+    const pdf = await buildInvoicePdf(
+      creditNoteInvoice({ ...INVOICED, billing: { ...INVOICED.billing, address: 'Langestraat 1\n1011 AB  Amsterdam\nThe Netherlands' } } as PdfInvoice, NOTE),
+      SELLER,
+      { creditsNumber: 'INV-0042', reason: 'Family emergency; the organiser gave back more than the rule. '.repeat(30) },
+    );
+    expect(pageCount(pdf)).toBe(1);
   });
 });

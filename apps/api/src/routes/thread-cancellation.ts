@@ -42,6 +42,7 @@ import { threadHosts } from '../lib/main-facilitator.js';
 import { type ReimbursablePurchase } from '../lib/reimburse.js';
 import { quoteForPlace } from '../lib/refund-quote.js';
 import { refundPart, remainingFor } from '../lib/partial-refund.js';
+import { sendCreditNote } from './purchases.js';
 import { sendEmail } from '../lib/email/client.js';
 import { platformEmailLocale } from '../lib/email/platform-i18n.js';
 import {
@@ -427,7 +428,7 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => 
 
   let refundedCents: number | null = null;
   let refundError: string | null = null;
-  let creditNote: { id: string; number: string } | null = null;
+  let creditNote: { id: string; number: string; emailed: boolean } | null = null;
   if (wantsRefund) {
     if (!refundPlan) {
       refundError = 'there is no card payment to refund';
@@ -447,7 +448,9 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => 
       if (!done.ok) refundError = done.error;
       else {
         refundedCents = done.refunded_cents;
-        creditNote = done.note;
+        // The member gets the note as a PDF, from the invoice's seller (3b).
+        const mailed = await sendCreditNote(done.note.id);
+        creditNote = { ...done.note, emailed: 'ok' in mailed };
       }
     }
     await adminClient

@@ -12,12 +12,21 @@
 //     that invoice's own series, for exactly the refund, and our row's net +
 //     VAT are the note's;
 //   · the database refusing AFTER the money moved is loud: the fixed tag in
-//     the log, the refund id, and the words the organiser reads.
+//     the log, the refund id, and the words the organiser reads;
+//   · THE NOTE AS AN EMAIL (slice 3b): to the payer, our one-page PDF
+//     attached, emailed_at written, and a second call sends nothing. The
+//     transport is recorded, not called (no Resend key on this rig).
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import Stripe from 'stripe';
 import { createThrowawayWorkspace, deleteThrowawayWorkspace, service } from './staging.js';
+
+const sent = vi.hoisted(() => [] as { to: string; subject: string; attachments?: { filename: string; content: string }[] }[]);
+vi.mock('../lib/email/client.js', async (orig) => ({
+  ...(await orig<typeof import('../lib/email/client.js')>()),
+  sendEmail: async (m: (typeof sent)[number]) => void sent.push(m),
+}));
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' as Stripe.LatestApiVersion });
 let account = '';
@@ -159,5 +168,30 @@ describe('the database refusing after the money moved', () => {
       fromSpy.mockRestore();
       errSpy.mockRestore();
     }
+  });
+});
+
+describe('the credit note as an email (slice 3b)', () => {
+  it('goes to the payer with our one-page PDF, once', async () => {
+    const { refundPart } = await import('../lib/partial-refund.js');
+    const { sendCreditNote } = await import('../routes/purchases.js');
+    const id = await cardPurchase(2400, 100, { payer_name: 'Int Refund', payer_email: 'delivered@resend.dev' });
+    const r = await refundPart(args(id, 1200, { reason: 'Moved abroad' }));
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+    sent.length = 0;
+
+    expect(await sendCreditNote(r.note.id)).toEqual({ ok: true });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ to: 'delivered@resend.dev', subject: `Credit note ${r.note.number} \u2014 Refund part` });
+    const att = sent[0]!.attachments ?? [];
+    expect(att.map((a) => a.filename)).toEqual([`credit-note-${r.note.number}.pdf`]);
+    const pdf = Buffer.from(att[0]!.content, 'base64').toString('latin1');
+    expect(pdf.startsWith('%PDF')).toBe(true);
+    expect((pdf.match(/\/Type\s*\/Page[^s]/g) ?? []).length).toBe(1);
+    expect((await service.from('purchase_credit_note').select('emailed_at').eq('id', r.note.id).single()).data!.emailed_at).toBeTruthy();
+
+    expect(await sendCreditNote(r.note.id)).toEqual({ ok: true, already: true });
+    expect(sent).toHaveLength(1);
   });
 });
