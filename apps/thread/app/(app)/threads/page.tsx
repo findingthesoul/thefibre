@@ -4,6 +4,7 @@ import { PageContainer, PageHeader, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { ThreadsList } from './threads-list';
+import { toStatusFilter } from '@/lib/thread-status-filter';
 import { NewThreadButton } from './new-thread-button';
 import { HandoverPanel } from './[id]/handover-panel';
 import { HandoverBatchBar } from './handover-batch-bar';
@@ -20,7 +21,15 @@ function batches(items: HandoverItem[]): Map<string, HandoverItem[]> {
   return out;
 }
 
-export default async function ThreadsPage() {
+export default async function ThreadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  // The status chip opens on Active (Sjoerd, 2026-10-17: "Show active as
+  // default"); a choice in the address (?status=all, a link, the back
+  // button) still wins.
+  const { status: statusParam } = await searchParams;
   const locale = await uiLocale();
   let threads: ThreadRow[] = [];
   let teams: TeamOption[] = [];
@@ -110,6 +119,7 @@ export default async function ThreadsPage() {
 
       {!error && (
         <ThreadsList
+          initialStatus={toStatusFilter(statusParam)}
           locale={locale}
           threads={threads}
           teams={teams}

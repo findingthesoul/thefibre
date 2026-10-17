@@ -1119,6 +1119,9 @@ function EngagementCard({
               )}
             </div>
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>
+            {e.system_twin_of && (
+              <div className="mt-0.5 text-xs text-ink-subtle">{t(locale, 'system_twin_warning')}</div>
+            )}
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-subtle shrink-0">
             {meta.family === 'activity' && schedule.length ? (

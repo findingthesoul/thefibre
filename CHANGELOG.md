@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.261.0] — 2026-10-17
+
+### The automatic welcome is deleted once, and a copy of it is flagged; the Threads list opens on Active (API + Thread 4.20.0)
+
+- **Deleted twice.** Sjoerd, production: on a new team thread ("Fellowship -
+  basic training") the automatic "You're enrolled: {title}" had to be deleted
+  twice. Reproduced on staging: the thread came from a template saved before
+  2026-10-15, when templates did not yet carry `system_role`, so its copy of
+  the message arrived as an ORDINARY message and the first editor load seeded
+  the real one beside it. Two identical-looking rows, only one with the
+  ticket, and both SENT to every new participant (every published message on
+  the trigger is sent).
+- **Adopt, don't add** (`lib/system-message-twins.ts`): before seeding a
+  system message, `ensureSystemEngagements` gives the role to an ordinary
+  message on the same trigger whose title is that message's default in any of
+  the six languages. It keeps its own words; one row; one delete. A message
+  the organiser titled themselves is never touched.
+- **Threads that already have both** are not changed behind the organiser's
+  back: `GET /threads/:id` marks the copy (`system_twin_of`, additive) and the
+  timeline says under it "Looks like a copy of the automatic message —
+  participants get both. Delete one?" (six languages).
+- **Active by default.** Sjoerd: "Show active as default". The Threads list
+  opens on Active when the address names no status; a choice is written to
+  the address (`?status=`), so a link, a reload and the back button keep it.
+  The dashboard's "N undated" (it counts drafts too) and "See all" now link to
+  `?status=all`, so neither shows fewer threads than it promised.
+- Tests: `system-message-twins.test.ts` (6), `thread-status-filter.test.ts`
+  (3), and `thread-system-twins.int.test.ts` against staging (5: an old
+  template adopted and deleted once; a new template; a plain team thread; the
+  organiser's own message left alone; both rows flagged and left untouched).
+  The old-template and flag cases fail on the previous `thread.ts`.
+
 ## [1.260.1] — 2026-10-17
 
 ### The join page: the price on its own line, and one left-aligned grid of cards (Members 1.19.0)

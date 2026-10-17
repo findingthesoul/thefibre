@@ -23,9 +23,11 @@
 import { threadDateLine, ORGANISER_DATES } from '@thefibre/shared/thread-date-line';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CalendarRange, ChevronDown, Lock, Route } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { one, type ThreadRow, type TeamOption } from '@/lib/thread-types';
+import { DEFAULT_STATUS, type StatusFilter } from '@/lib/thread-status-filter';
 import { EmptyState } from '@/components/ui/page';
 import { PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 import { t, type UiKey } from '@/lib/i18n-ui';
@@ -55,7 +57,10 @@ export function ThreadsList({
   threads,
   teams,
   workspaceName = null,
+  initialStatus = DEFAULT_STATUS,
 }: {
+  /** From the address (?status=); the default when it says nothing. */
+  initialStatus?: StatusFilter;
   locale: Locale;
   threads: ThreadRow[];
   teams: TeamOption[];
@@ -65,7 +70,19 @@ export function ThreadsList({
 }) {
   // 'all' | 'personal' | 'workspace' | team id
   const [filter, setFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft' | 'past'>('all');
+  const [statusFilter, setStatusFilterState] = useState<StatusFilter>(initialStatus);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  // The choice goes into the address, so a link, a reload and the back
+  // button all mean what the chip said. Replace, not push: a chip is not a
+  // page.
+  const setStatusFilter = (v: StatusFilter) => {
+    setStatusFilterState(v);
+    const next = new URLSearchParams(params?.toString() ?? '');
+    next.set('status', v);
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  };
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   // Categories ride along on every thread row, so the options are whatever
@@ -103,7 +120,7 @@ export function ThreadsList({
     return list;
   }, [threads, filter, statusFilter, categoryFilter]);
 
-  const statusChip = (value: 'all' | 'active' | 'draft' | 'past', label: string) => (
+  const statusChip = (value: StatusFilter, label: string) => (
     <button
       key={value}
       type="button"

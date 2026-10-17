@@ -196,7 +196,9 @@ export default async function ThreadDashboard() {
     needs.push({
       key: 'undated',
       label: t(locale, 'dash_undated', { count: undated }),
-      href: '/threads',
+      // Counts drafts too, and the list opens on Active (2026-10-17): say
+      // all, or the link shows fewer threads than it promised.
+      href: '/threads?status=all',
     });
 
   const quiet = !empty && needs.length === 0 && today.length === 0 && upcoming.length === 0;
@@ -292,7 +294,7 @@ export default async function ThreadDashboard() {
         <section className="mt-9">
           <div className="flex items-baseline justify-between gap-4">
             <SectionLabel>{t(locale, 'dash_coming_up')}</SectionLabel>
-            <Link href="/threads" className="text-xs text-ink-subtle hover:text-ink">
+            <Link href="/threads?status=all" className="text-xs text-ink-subtle hover:text-ink">
               {t(locale, 'dash_see_all')}
             </Link>
           </div>

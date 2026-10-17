@@ -1565,6 +1565,17 @@ const CATALOG = {
     de: 'Verschickt das Ticket', // MT
     fr: 'Envoie le billet', // MT
   },
+  // On an ordinary message that copies one of the automatic ones (a template
+  // saved before 2026-10-15 brought it as a plain message). Both are sent,
+  // so the organiser is told and decides; nothing is removed for them.
+  system_twin_warning: {
+    en: 'Looks like a copy of the automatic message — participants get both. Delete one?',
+    nl: 'Lijkt een kopie van het automatische bericht — deelnemers krijgen ze allebei. Eén verwijderen?',
+    es: 'Parece una copia del mensaje automático: los participantes reciben los dos. ¿Eliminar uno?', // MT
+    pt: 'Parece uma cópia da mensagem automática — os participantes recebem as duas. Apagar uma?', // MT
+    de: 'Sieht aus wie eine Kopie der automatischen Nachricht – Teilnehmende bekommen beide. Eine löschen?', // MT
+    fr: 'Cela ressemble à une copie du message automatique : les participants reçoivent les deux. En supprimer un ?', // MT
+  },
   // The search at the top of Add participant. It says FIND, not "person",
   // because the point of the field is that most people being added are
   // already known.

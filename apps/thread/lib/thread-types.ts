@@ -237,6 +237,10 @@ export type EngagementRow = {
    *  enrolment_confirmed). System messages stay deletable on every plan —
    *  they fall back to the compiled emails. */
   system_role?: string | null;
+  /** Set (by the API, 2026-10-17) on an ORDINARY message that copies a
+   *  system message this thread already has — both are sent. The editor
+   *  flags it; nothing removes it. */
+  system_twin_of?: string | null;
   created_at: string;
   updated_at: string;
 };

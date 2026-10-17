@@ -141,6 +141,7 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
+import { adoptable, twinsOf, type MessageRow, type SystemRole } from '../lib/system-message-twins.js';
 import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone, bioToHtml, bioToPlain, resolveShortBio, FIELD_LIMITS, tooLongMessage } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
@@ -985,9 +986,15 @@ threadRoutes.get('/threads/:id', async (c) => {
     }),
   );
 
+  // An ordinary message that copies a system message the thread already has
+  // (both are sent to every new participant). Flagged, never removed: the
+  // organiser decides which one goes (lib/system-message-twins.ts).
+  const twins = twinsOf((engagements ?? []) as MessageRow[]);
+
   return c.json({
     ...thread,
-    engagements: engagements ?? [],
+    // `system_twin_of` (additive, 2026-10-17): the role this row duplicates.
+    engagements: (engagements ?? []).map((e) => ({ ...e, system_twin_of: twins.get(e.id as string) ?? null })),
     co_organisers: coOrganisers ?? [],
     meeting_room: room
       ? {
@@ -4421,12 +4428,17 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
     .maybeSingle();
   if (!thread) return;
 
+  // Every message, not only the system rows: an ordinary copy of a system
+  // message (a template saved before 2026-10-15 carried no system_role) is
+  // ADOPTED below rather than given a second, identical row beside it.
   const { data: existing } = await adminClient
     .from('thread_engagement')
-    .select('system_role')
+    .select('id, type, title, trigger_kind, system_role')
     .eq('thread_id', threadId)
-    .not('system_role', 'is', null);
-  const have = new Set((existing ?? []).map((r) => r.system_role as string));
+    .eq('workspace_id', thread.workspace_id)
+    .eq('type', 'message');
+  const messages = (existing ?? []) as MessageRow[];
+  const have = new Set(messages.map((r) => r.system_role).filter(Boolean) as string[]);
 
   // "Did we already give you this?", which is a different question from "is
   // it here?" — and asking only the second one is why a deleted system
@@ -4440,10 +4452,32 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
 
   const defaults = systemMessageDefaults((thread as { language?: string }).language ?? 'en');
   const rows: Record<string, unknown>[] = [];
+  const adopted: string[] = [];
+
+  // ADOPT, DON'T ADD (2026-10-17, Sjoerd: "deleted twice"). The copy keeps
+  // its own words and its place; it only gains the role, so it carries the
+  // ticket and deleting it is final.
+  const adopt = async (role: SystemRole): Promise<boolean> => {
+    const twin = adoptable(messages, role);
+    if (!twin) return false;
+    const { error } = await adminClient
+      .from('thread_engagement')
+      .update({ system_role: role })
+      .eq('id', twin.id)
+      .eq('thread_id', threadId)
+      .eq('workspace_id', thread.workspace_id)
+      .is('system_role', null);
+    if (error) {
+      console.warn('[thread] could not adopt a system message copy', error.message);
+      return false;
+    }
+    adopted.push(role);
+    return true;
+  };
 
   // "Your ticket" — on approval where a thread is gated, on enrolment where it
   // is not. One row either way: which moment it fires at is the trigger's job.
-  if (!skip('enrolment_confirmed')) {
+  if (!skip('enrolment_confirmed') && !(await adopt('enrolment_confirmed'))) {
     rows.push({
       workspace_id: thread.workspace_id,
       thread_id: threadId,
@@ -4458,7 +4492,7 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
       position: -2,
     });
   }
-  if (thread.requires_approval && !skip('enrolment_received')) {
+  if (thread.requires_approval && !skip('enrolment_received') && !(await adopt('enrolment_received'))) {
     rows.push({
       workspace_id: thread.workspace_id,
       thread_id: threadId,
@@ -4472,17 +4506,21 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
       position: -3,
     });
   }
-  if (!rows.length) return;
-  const { error } = await adminClient.from('thread_engagement').insert(rows);
-  if (error) {
-    console.warn('[thread] could not seed system messages', error.message);
-    return; // Don't record a role we failed to create, or it never arrives.
+  if (!rows.length && !adopted.length) return;
+  if (rows.length) {
+    const { error } = await adminClient.from('thread_engagement').insert(rows);
+    if (error) {
+      console.warn('[thread] could not seed system messages', error.message);
+      // Don't record a role we failed to create, or it never arrives.
+      rows.length = 0;
+      if (!adopted.length) return;
+    }
   }
-  // Record what was given, so deleting it is final.
+  // Record what was given (or adopted), so deleting it is final.
   await adminClient
     .from('thread_thread')
     .update({
-      system_messages_seeded: [...seeded, ...rows.map((r) => r.system_role as string)],
+      system_messages_seeded: [...new Set([...seeded, ...adopted, ...rows.map((r) => r.system_role as string)])],
     })
     .eq('id', threadId);
 }
