@@ -264,7 +264,11 @@ export function Timeline({
   // Counted within the CURRENT scope, so the number and the list it filters
   // to are never describing different things.
   const owed = unanswered(inScope);
-  const upcoming = onlyUnanswered ? owed : inScope;
+  // OPTION B (Sjoerd, held until he chooses it): a thread with no dated
+  // session yet is not an entry in a dated list. It moves to its own section
+  // above the list, and opens the same dialog.
+  const comingSoon = onlyUnanswered ? [] : inScope.filter((e) => e.startsOnly);
+  const upcoming = (onlyUnanswered ? owed : inScope).filter((e) => !e.startsOnly);
   // Past RSVPs are moot — the question is not still open, whatever the
   // answer was — so "Earlier" never narrows to unanswered.
   const earlier = past.filter(keep);
@@ -339,7 +343,29 @@ export function Timeline({
         </button>
       )}
 
-      {upcoming.length === 0 ? (
+      {comingSoon.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-ink-muted">{t(locale, 'threads_coming_soon')}</h2>
+          <ul className="mt-2 space-y-2">
+            {comingSoon.map((e) => (
+              <li key={e.key}>
+                <button
+                  type="button"
+                  onClick={() => e.threadId && setOpenThread(e.threadId)}
+                  className="flex w-full min-h-11 flex-col items-start rounded-xl border border-line bg-surface px-3 py-2 text-left hover:border-line-strong"
+                >
+                  <span className="font-medium text-ink [overflow-wrap:anywhere] line-clamp-2">{e.title}</span>
+                  <span className="text-sm text-ink-muted">
+                    {[t(locale, 'starts_on_date', { date: shortDay(e.dateIso, locale) }), e.organiser].join(' \u00b7 ')}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {upcoming.length === 0 && comingSoon.length > 0 ? null : upcoming.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
           {chosenThread
             ? t(locale, 'nothing_in', {

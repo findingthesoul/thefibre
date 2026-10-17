@@ -4019,6 +4019,17 @@ const CATALOG = {
     de: 'Beginnt am {date}', // MT
     fr: 'Commence le {date}', // MT
   },
+
+  // ── Option B: threads without sessions ────────────────────────────────
+  // Option B (held for Sjoerd): enrolled threads with no sessions yet, in their own section above the dated list.
+  threads_coming_soon: {
+    en: 'Your threads — programme coming soon',
+    nl: 'Je threads — programma volgt nog',
+    es: 'Tus threads: programa próximamente', // MT
+    pt: 'Seus threads — programação em breve', // MT
+    de: 'Deine Threads – Programm folgt bald', // MT
+    fr: 'Tes threads — programme à venir', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

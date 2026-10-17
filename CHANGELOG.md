@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.268.1] — 2026-10-17
+
+### my.thread → Next: threads without sessions get their own section ("option B") (my.thread 0.32.3)
+
+- Sjoerd chose B (on the coordinator's advice). v1.262.4 ("option A")
+  labelled a session-less thread "Starts 13 Jan" inside the dated list.
+- Option B takes enrolled threads that have no dated session yet OUT of the
+  dated list. They go into a small section above it, "Your threads —
+  programme coming soon" (six languages). Each row shows the title and
+  "Starts 13 Jan · organiser". Clicking it opens the same dialog: ticket,
+  cancellation request, full page. Past ones stay under Earlier. The section
+  hides while "needs an answer" is filtered.
+- Tested: apps/my typecheck, unit 86/86. Seen rendered at 1280 and 375
+  (a local my.thread on this commit against staging), with a seeded
+  session-less thread for the rehearsal fixture: the section above the list,
+  "Starts 13 Apr · The Thread", and a click that opens the dialog. The
+  fixture was removed afterwards (read back: none left).
+
 ## [1.268.0] — 2026-10-17
 
 ### Refund rules, slice 2: set the rule, and see what it gives back (API + Thread 4.21.0)
