@@ -830,3 +830,13 @@ export async function answerHandover(
   }
 }
 
+/** How many people would have how many upcoming sessions taken out of their
+ *  calendars if this thread ended (calendar gaps, slice 3). Zero on any
+ *  failure: the confirm then simply says nothing extra. */
+export async function getEndReach(threadId: string): Promise<{ people: number; sessions: number }> {
+  try {
+    return await apiFetch<{ people: number; sessions: number }>(`/api/v1/thread/threads/${threadId}/end-reach`);
+  } catch {
+    return { people: 0, sessions: 0 };
+  }
+}

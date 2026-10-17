@@ -3859,6 +3859,23 @@ const CATALOG = {
     de: '{amount} auf die Karte erstatten', // MT
     fr: 'Rembourser {amount} sur sa carte', // MT
   },
+  // A whole thread ending (calendar gaps, slice 3): what the confirm says.
+  thread_end_cancels: {
+    en: 'This sends a cancellation to {people} people for {sessions} upcoming sessions in their calendars.',
+    nl: 'Dit stuurt {people} mensen een annulering voor {sessions} komende sessies in hun agenda.',
+    es: 'Esto envía una cancelación a {people} personas para {sessions} sesiones próximas de su calendario.', // MT
+    pt: 'Isto envia um cancelamento a {people} pessoas para {sessions} sessões futuras nos seus calendários.', // MT
+    de: 'Damit erhalten {people} Personen eine Absage für {sessions} kommende Sitzungen in ihrem Kalender.', // MT
+    fr: 'Cela envoie une annulation à {people} personnes pour {sessions} sessions à venir dans leur agenda.', // MT
+  },
+  archive_thread_confirm_title: {
+    en: 'Archive this thread?',
+    nl: 'Deze thread archiveren?',
+    es: '¿Archivar este thread?', // MT
+    pt: 'Arquivar este thread?', // MT
+    de: 'Diesen Thread archivieren?', // MT
+    fr: 'Archiver ce thread ?', // MT
+  },
   // The refund rule editor (refund rules, slice 2): Settings → Payments and
   // a thread's Pricing. Non-English lines machine-translated.
   refund_rule_title: {

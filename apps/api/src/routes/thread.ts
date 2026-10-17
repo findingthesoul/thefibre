@@ -112,6 +112,7 @@ import { pgErrorBody, pgErrorMessage, pgErrorStatus } from '../lib/pg-error.js';
 import { isUuid } from '../lib/ids.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
 import { invalidRule } from '../lib/refund-rules.js';
+import { endReach, planThreadEnd, sendThreadEnd } from '../lib/calendar-thread-end.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
@@ -1305,6 +1306,16 @@ threadRoutes.patch('/threads/:id', async (c) => {
     }
   }
 
+  // Archived: its upcoming sessions leave people's calendars
+  // (lib/calendar-thread-end.ts). Recorded as CANCEL, so archiving again
+  // sends nothing twice. In the background: a send is paced per mail.
+  if (status === 'archived') {
+    void planThreadEnd(id)
+      .then((plan) => (plan?.sessions.length ? sendThreadEnd(plan, { record: true }) : null))
+      .then((r) => r && console.log('[thread/archive] calendar cancels', { thread: id, ...r }))
+      .catch((e) => console.error('[thread/archive] calendar cancels failed', e));
+  }
+
   // Rich text is sanitised on the way IN — the way out is four surfaces and
   // only one of them has to forget (lib/rich-text.ts).
   if ('intention' in threadPatch) {
@@ -1460,11 +1471,33 @@ threadRoutes.delete('/threads/:id', async (c) => {
     .maybeSingle();
   if (!existing) return c.json({ error: 'not found' }, 404);
   if (await threadLocked(existing.id)) return c.json(LOCKED, 423);
+  // Calendars FIRST (lib/calendar-thread-end.ts): the delete below cascades
+  // the enrolments and the held rows away, so who holds which session is
+  // read now and the CANCELs are sent from that copy afterwards.
+  const ending = await planThreadEnd(existing.id).catch((e) => {
+    console.error('[thread/delete] calendar plan failed (the delete goes on)', e);
+    return null;
+  });
   const { error } = await db.from('thread_thread').delete().eq('id', existing.id);
   if (error) return c.json({ error: error.message }, 500);
   // Program second: deleting it cascades platform enrolments.
   await adminClient.from('program').delete().eq('id', existing.program_id);
+  if (ending?.sessions.length) {
+    void sendThreadEnd(ending, { record: false })
+      .then((r) => console.log('[thread/delete] calendar cancels', { thread: existing.id, ...r }))
+      .catch((e) => console.error('[thread/delete] calendar cancels failed', e));
+  }
   return c.body(null, 204);
+});
+
+// GET /threads/:id/end-reach — for the delete / archive confirm: how many
+// people would have how many upcoming sessions taken out of their calendars.
+// The same plan the send uses, so the dialog cannot promise another number.
+threadRoutes.get('/threads/:id/end-reach', async (c) => {
+  const ctx = c.get('ctx');
+  const { data: t } = await userClient(ctx.jwt).from('thread_thread').select('id').eq('id', c.req.param('id')).maybeSingle();
+  if (!t) return c.json({ error: 'not found' }, 404);
+  return c.json(endReach(await planThreadEnd(t.id as string)));
 });
 
 // PATCH /api/v1/thread/threads/:id/lock — set or clear the lock. Its own

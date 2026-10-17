@@ -35,6 +35,7 @@ import {
   addThreadMember,
   removeThreadMember,
   deleteThread,
+  getEndReach,
   duplicateThread,
   setThreadLocked,
 } from '../actions';
@@ -294,6 +295,16 @@ export function ThreadTimeline({
   >({ mode: 'closed' });
   const [quickTime, setQuickTime] = useState<EngagementRow | null>(null);
   const [confirmThreadDelete, setConfirmThreadDelete] = useState(false);
+  // How many people would have how many upcoming sessions taken out of their
+  // calendars if this thread ended (GET /threads/:id/end-reach — the same plan
+  // the CANCELs are sent by). Asked when a delete or archive is about to
+  // happen, so the confirm can say it.
+  const [endReach, setEndReach] = useState<{ people: number; sessions: number } | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  useEffect(() => {
+    if (!confirmThreadDelete) return;
+    void getEndReach(thread.id).then(setEndReach);
+  }, [confirmThreadDelete, thread.id]);
   const [confirmLock, setConfirmLock] = useState(false);
   // A locked thread is frozen as a design (Sjoerd 2026-09-09). Everything
   // below reads this one flag: the title, the timeline's write affordances
@@ -429,7 +440,17 @@ export function ThreadTimeline({
         router.refresh();
       });
     if (next === 'active' && status !== 'active') void payCheck.check('publish', save, () => setShownStatus(before));
-    else save();
+    else if (next === 'archived' && status !== 'archived') {
+      // Archiving takes the upcoming sessions out of people's calendars: say
+      // how many first, when there is anyone to tell.
+      void getEndReach(thread.id).then((reach) => {
+        if (reach.people > 0) {
+          setEndReach(reach);
+          setShownStatus(before);
+          setConfirmArchive(true);
+        } else save();
+      });
+    } else save();
   }
   // Before the click: a paid thread with no way to pay cannot go live, and
   // the API says why on the thread itself (publish_blocker), from the same
@@ -961,6 +982,24 @@ export function ThreadTimeline({
         pending={threadActionPending}
       />
 
+      <ConfirmDialog
+        open={confirmArchive}
+        onCancel={() => setConfirmArchive(false)}
+        onConfirm={() => {
+          setConfirmArchive(false);
+          setShownStatus('archived');
+          startTransition(async () => {
+            const r = await updateThread(thread.id, { status: 'archived' });
+            setStatusError(r.ok ? null : r.error);
+            if (!r.ok) setShownStatus(status);
+            router.refresh();
+          });
+        }}
+        title={t(locale, 'archive_thread_confirm_title')}
+        message={t(locale, 'thread_end_cancels', { people: String(endReach?.people ?? 0), sessions: String(endReach?.sessions ?? 0) })}
+        confirmLabel={t(locale, 'status_archived')}
+      />
+
       <DangerConfirmDialog
         open={confirmThreadDelete}
         title={t(locale, 'delete_thread')}
@@ -968,6 +1007,12 @@ export function ThreadTimeline({
           <>
             {t(locale, 'delete_thread_msg_1')} <strong>{program?.title}</strong>{' '}
             {t(locale, 'delete_thread_msg_2')}
+            {endReach && endReach.people > 0 && (
+              <>
+                {' '}
+                {t(locale, 'thread_end_cancels', { people: String(endReach.people), sessions: String(endReach.sessions) })}
+              </>
+            )}
           </>
         }
         pending={threadActionPending}

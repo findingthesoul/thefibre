@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.271.0] — 2026-10-17
+
+### Calendar invitations, slice 3: when a whole thread ends, its sessions leave people's calendars (API + Thread 4.22.0)
+
+- Until now, deleting or archiving a thread sent nothing, and everyone who had
+  been invited kept its sessions in their calendar. Now each upcoming session
+  that ever went out gets a CANCEL (its own UID, the sequence bumped) to
+  everyone who holds it:
+  - the `thread_calendar_held` REQUEST rows;
+  - for a session an organiser SENT before that record existed, every live
+    participant;
+  - the session's invited hosts.
+  Never someone already cancelled, never a past session.
+- **Delete: order is the point.** The delete cascades the enrolments and the
+  held rows away, so `lib/calendar-thread-end.ts` reads who holds what FIRST
+  and sends the CANCELs from that copy afterwards, in the background.
+- **Paced** like every calendar send (550 ms, Resend's limit). It logs a
+  start line with how many are due and "N of M sent" at the end. After a
+  delete the record is gone, so a cut-off (a restart mid-send) reads as a
+  start with no end.
+- **Archive:** the rows are flipped to CANCEL, so archiving again sends
+  nothing twice. Completed threads send nothing.
+- **Thread asks first.** `GET /thread/threads/:id/end-reach` gives the count
+  from the same plan. Choosing Archived asks "Archive this thread?" with "This
+  sends a cancellation to N people for M upcoming sessions in their
+  calendars." when there is anyone to tell. Delete says the same in its
+  confirm. Six languages.
+- Tests: `calendar-thread-end.int.test.ts` against staging, with mail
+  recorded:
+  - who gets a CANCEL and who does not, with end-reach agreeing with the send;
+  - CANCELs at the bumped sequence, rows flipped, a second archive empty;
+  - DELETE through the real route: a recipient known ONLY from a held row
+    still gets the CANCEL although the delete has already removed the row (the
+    coordinator's ordering test).
+
 ## [1.270.3] — 2026-10-17
 
 ### my.thread's "your calendar follows this feed" now comes from the API: one rule, not two (API, my.thread 0.32.5)
