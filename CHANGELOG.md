@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.15] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 2, step 4: a contact's timeline shows what they did in YOUR threads and bookings (migration)
+
+- Sjoerd: "I can only see what those contacts have done in relation to my
+  organisation, not the whole workspace." `can_see_activity` now shows an
+  activity row when ANY of these holds:
+  - you are an admin;
+  - the row is about yourself;
+  - you wrote it (notes, Flow);
+  - its `activity_ref` is a thread you organise, host or facilitate, or a
+    thread of your team;
+  - its `activity_ref` is a Meet booking you host, or of a meeting type you
+    are assigned to or your team owns.
+  Every other row is admins only: membership, Drive, profile, external apps'
+  rows, and old rows the backfill could not match.
+- Order kept, so no organiser's history went blank:
+  - the writers carry refs since v1.277.3;
+  - the production backfill ran first (Sjoerd, 2026-10-17: 20 thread and 14
+    booking refs; restore file kept).
+- Same signature, so `create or replace` keeps the born-closed grants.
+  `activity_ref` stays unreadable to signed-in users; only this definer
+  function reads it.
+- **Migration alone:**
+  - `20261017143224_contacts_activity_follows_the_hierarchy.sql`.
+  - Its RLS tests, run against staging's live function, ship in the next
+    release.
+
 ## [1.277.14] — 2026-10-17
 
 ### Security: an app's scopes and activity types are its own declaration, and a later widening waits for review (API + Fibre /admin/apps)
