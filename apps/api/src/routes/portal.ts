@@ -1548,7 +1548,7 @@ portalRoutes.delete('/portal/calendar', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
   await revokeFeed(email);
-  return c.json({ subscribed: false, created_at: null, last_read_at: null, url: null, webcal: null });
+  return c.json({ subscribed: false, created_at: null, last_read_at: null, follows: false, url: null, webcal: null });
 });
 
 // The feed. NO SESSION — see lib/calendar-feed.ts: a calendar client cannot

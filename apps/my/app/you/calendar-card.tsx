@@ -25,7 +25,6 @@ import { t } from '@/lib/i18n';
 import { parts } from '@/lib/i18n-parts';
 import { googleCalendarLink, outlookLink } from '@/lib/calendar-links';
 import { readCalendarChoice, writeCalendarChoice, type CalendarChoice } from '@/lib/calendar-pref';
-import { feedIsFollowed } from '@/lib/calendar-follows';
 
 function orderByChoice(choice: CalendarChoice | null): CalendarChoice[] {
   const all: CalendarChoice[] = ['apple', 'google', 'outlook'];
@@ -137,9 +136,10 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
       )}
 
       {/* The calendar window sends no separate invitations to someone whose
-          calendar follows this feed (lib/calendar-follows.ts mirrors its
-          rule). Say so, or a member waits for invitations that never come. */}
-      {feedIsFollowed(state, new Date()) && (
+          calendar follows this feed. The API decides (`follows`, by the
+          window's own rule); an older API without it reads as not following.
+          Say so, or a member waits for invitations that never come. */}
+      {state.subscribed && state.follows === true && (
         <p className="mt-1 text-xs text-ink-muted">{t(locale, 'cal_follows')}</p>
       )}
 

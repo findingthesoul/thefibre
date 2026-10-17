@@ -638,6 +638,10 @@ export type CalendarStatus = {
   subscribed: boolean;
   created_at: string | null;
   last_read_at: string | null;
+  /** The calendar follows closely enough that no separate invitations are
+   *  sent — the API's own rule (calendar-window.ts `feedFollows`). Absent
+   *  from an older API: read as not following. */
+  follows?: boolean;
   url: string | null;
   webcal: string | null;
 };

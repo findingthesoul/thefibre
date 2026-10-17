@@ -51,6 +51,7 @@ import { enrolmentCanRespond } from './portal.js';
 import { loadAgendaByThread, personsForEmail } from './portal-agenda.js';
 import { publicOwnerSlug } from './public-owner-slug.js';
 import { publicOriginFor } from './public-origin.js';
+import { feedFollows } from './calendar-window.js';
 
 /** Same window the portal page uses. The feed shows what the page shows. */
 const PAST_WINDOW_DAYS = 90;
@@ -84,6 +85,11 @@ export type FeedStatus = {
   /** When a calendar client last collected it. The only honest answer to
    *  "is my calendar actually following this?" */
   last_read_at: string | null;
+  /** The calendar follows closely enough that the calendar window sends no
+   *  separate invitations (calendar-window.ts `feedFollows`, its own rule).
+   *  Added 2026-10-17; an older API has no field, which my.thread reads as
+   *  "not following". */
+  follows: boolean;
   /** The address itself. Null only for rows minted before 2026-09-24, when
    *  nothing but the hash was kept — there is nothing to recover from a hash,
    *  so the portal offers those a new address instead. */
@@ -105,6 +111,8 @@ export async function feedStatusForEmail(email: string): Promise<FeedStatus> {
     subscribed: !!data,
     created_at: (data?.created_at as string | null) ?? null,
     last_read_at: (data?.last_read_at as string | null) ?? null,
+    // `data` is only ever a live row (revoked_at is null above).
+    follows: !!data && feedFollows({ last_read_at: (data.last_read_at as string | null) ?? null }, new Date()),
     url: address?.url ?? null,
     webcal: address?.webcal ?? null,
   };

@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.270.3] — 2026-10-17
+
+### my.thread's "your calendar follows this feed" now comes from the API: one rule, not two (API, my.thread 0.32.5)
+
+- The calendar state my.thread reads (`GET /me/portal/calendar`) gains
+  `follows: boolean`, computed by the calendar window's own `feedFollows`
+  (calendar-window.ts, v1.270.2). Additive; `DELETE` answers `follows: false`.
+- my.thread shows the line only when `follows` is true, so an older API
+  without the field reads as "not following". `lib/calendar-follows.ts` and its test,
+  which kept a copy of the 14-day rule, are gone. The rule's edges are
+  pinned once, in `calendar-window.test.ts`.
+- Tested: new `calendar-feed-follows.int.test.ts` against staging (read an
+  hour ago → follows; 15 days → not; never read → not; revoked → neither
+  subscribed nor following; its row removed and read back). API and apps/my
+  typecheck; apps/my unit 86/86.
+
 ## [1.270.2] — 2026-10-17
 
 ### Calendar window: claim before send, and at most 200 per pass — nobody gets a session twice, however long the launch (API)
