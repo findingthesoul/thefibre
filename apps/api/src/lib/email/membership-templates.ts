@@ -353,12 +353,28 @@ function euro(cents: number | null | undefined, currency = 'EUR', locale: Locale
   );
 }
 
-function longDate(iso: string, locale: Locale): string {
-  return new Date(iso).toLocaleDateString(INTL_LOCALES[locale], {
+/** The day a membership renews, in the mail's language — and in a ZONE we
+ *  chose, never the server's (2026-10-17). It printed with no zone at all, so
+ *  the day depended on the machine: right on a UTC server for most dates,
+ *  wrong for a Stripe renewal between 00:00 and 02:00 Amsterdam time (a UTC
+ *  server is still on the day before), and wrong under any other host zone.
+ *
+ *  Two kinds of value arrive here. A date an admin set in the member dialog is
+ *  stored as UTC midnight (dateToIso, `…T00:00:00.000Z`): that is a calendar
+ *  date, read in UTC so it is the day they picked. Anything else is a real
+ *  instant (Stripe's period end), read in Europe/Amsterdam — our rule while a
+ *  community has no zone of its own. */
+export const MEMBERSHIP_TZ = 'Europe/Amsterdam';
+export function longDate(iso: string, locale: Locale): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const calendarDate = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0;
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  });
+    timeZone: calendarDate ? 'UTC' : MEMBERSHIP_TZ,
+  }).format(d);
 }
 
 /** The body size the membership emails are read at.

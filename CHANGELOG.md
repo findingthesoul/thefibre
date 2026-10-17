@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.2] — 2026-10-17
+
+### Membership mails: the renewal day is the same on every server, and right just after midnight (API)
+
+- `longDate` (lib/email/membership-templates.ts) formatted with NO time zone,
+  so the day followed whatever machine sent the mail. It feeds the welcome
+  mail's "Your membership renews on …" and the renewal reminder's subject
+  and body.
+- **Could production members have seen a wrong date: yes, rarely.** On a
+  UTC server, a Stripe renewal instant between 00:00 and 02:00 Amsterdam
+  time printed the PREVIOUS day. Running the old code on TZ=UTC gives
+  "13 October 2027" for 2027-10-13T22:30Z, which is 00:30 on the 14th in
+  Amsterdam. Dates an admin typed in the member dialog are stored as UTC
+  midnight and were right on UTC servers. The "until" date in the
+  stop/resume mail was already Amsterdam-explicit and is unchanged.
+- Now two kinds of value are read differently. A UTC-midnight value (an
+  admin's date, `dateToIso`) is a calendar date, read in UTC. Any other
+  instant (Stripe's period end) is read in Europe/Amsterdam, our rule while
+  a community has no zone of its own (no workspace has a zone column). Both
+  use the mail's language. An unreadable value is shown as given, never
+  "Invalid Date".
+- Tested: `membership-renew-date.test.ts` (6, fixed instants), covering the
+  admin date in en and nl, the 00:30 Stripe instant, an ordinary instant,
+  winter time, an unreadable value, and the welcome and the reminder both.
+  The 20 email test files pass under TZ=UTC, Europe/Amsterdam and
+  America/Los_Angeles, including `welcome-two-triggers`, which failed under
+  Los Angeles on staging before. B3 (whose lane this file is) was told
+  first.
+
 ## [1.277.1] — 2026-10-17
 
 ### my.thread: an eye over your own photo and name says whether other members can find you, and opens the switch (my.thread 0.35.0)
