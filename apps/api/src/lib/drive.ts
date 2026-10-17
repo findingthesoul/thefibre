@@ -59,6 +59,14 @@ export function driveServiceAccount(env: Record<string, string | undefined> = pr
   }
 }
 
+/** Whether the key is there and readable — never its value. 'unreadable'
+ *  is the case that cost a round trip on 2026-10-17: the secret was set on
+ *  staging and config still said "not set up", with nothing saying why. */
+export function driveSetupState(env: Record<string, string | undefined> = process.env): 'missing' | 'unreadable' | 'ok' {
+  if (!env.GOOGLE_DRIVE_SA_JSON?.trim()) return 'missing';
+  return driveServiceAccount(env) ? 'ok' : 'unreadable';
+}
+
 let token: { value: string; expires: number } | null = null;
 
 /** Tests only. */

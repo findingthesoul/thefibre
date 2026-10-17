@@ -93,6 +93,7 @@ import { ensurePref } from '../lib/member-notify.js';
 import { communityView, memberCommunities, signedDocumentUrl } from '../lib/member-page.js';
 import { filesFor } from '../lib/portal-files.js';
 import { admittedDriveEntry, prepareDownload, serveDownload } from '../lib/drive-connect.js';
+import { publicOrigin } from './mcp-discovery.js';
 import { DriveError, listFolder } from '../lib/drive.js';
 import {
   couldJoinFrom,
@@ -1341,7 +1342,7 @@ portalRoutes.post('/portal/community/:ws/drive/:docId/download', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
   const body = (await c.req.json().catch(() => null)) as { file_id?: unknown } | null;
-  const r = await prepareDownload(email, c.req.param('ws'), c.req.param('docId'), body?.file_id);
+  const r = await prepareDownload(email, c.req.param('ws'), c.req.param('docId'), body?.file_id, publicOrigin(c.req.raw.headers));
   if ('error' in r && r.error) return c.json({ error: r.error.code.replace('_', ' '), code: r.error.code }, r.error.status);
   return c.json(r);
 });

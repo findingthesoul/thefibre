@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.267.2] — 2026-10-17
+
+### Drive downloads link to the API they were asked on; Drive's setup says WHY it is not ready (API)
+
+- Builder 3 caught it before anyone tested on staging. The 60-second download
+  link was built from `PUBLIC_API_URL`, whose fallback is the PRODUCTION host.
+  On a stack where that variable is unset or wrong, a staging member would
+  have been sent to production's API, where a staging token can never verify.
+- It is now this API's own origin, taken from the request (`publicOrigin`,
+  the helper the Stripe Connect callback was moved to for exactly this
+  reason).
+- `GET /membership/member-page/drive/config` gains `setup`: `missing` /
+  `unreadable` / `ok`. It never shows the key, only whether one is set and
+  whether it reads as a service-account key.
+  - On staging the secret is set, yet config answered "not configured" with
+    nothing saying why; `unreadable` names that case.
+- Tests: `drive.test.ts` (14, with the setup states);
+  `drive-download.int.test.ts` pins the link's origin through the request
+  path; `drive-folder.int.test.ts` reads `setup: 'ok'`.
+
 ## [1.267.1] — 2026-10-17
 
 ### Drive: the download redirect goes only to the API's stream; a Members help guide for connecting a folder (my.thread 0.32.1, Members 1.20.1)

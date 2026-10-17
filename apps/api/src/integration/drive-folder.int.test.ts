@@ -133,7 +133,7 @@ afterAll(async () => {
 
 describe('connecting a folder', () => {
   it('config names the service account', async () => {
-    expect(await json(await call(adminA, 'GET', '/membership/member-page/drive/config'))).toEqual({ service_account: SA });
+    expect(await json(await call(adminA, 'GET', '/membership/member-page/drive/config'))).toEqual({ service_account: SA, setup: 'ok' });
   });
 
   it('start: a non-folder link, an unseen folder, then a shared one', async () => {

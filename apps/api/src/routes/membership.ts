@@ -89,7 +89,7 @@ import {
 } from '../lib/pricing.js';
 import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
 import { startConnect, verifyConnect } from '../lib/drive-connect.js';
-import { serviceAccountEmail } from '../lib/drive.js';
+import { driveSetupState, serviceAccountEmail } from '../lib/drive.js';
 import { declineGoogleAccount, markGoogleAccountCreated, ownDomainAddress } from '../lib/google-account.js';
 import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
@@ -2121,7 +2121,8 @@ membershipRoutes.post('/member-page/links', async (c) => {
 membershipRoutes.get('/member-page/drive/config', async (c) => {
   const ws = await admin(c);
   if (!ws) return c.json({ error: 'admin only' }, 403);
-  return c.json({ service_account: serviceAccountEmail() });
+  // `setup` (additive): missing / unreadable / ok — never the key itself.
+  return c.json({ service_account: serviceAccountEmail(), setup: driveSetupState() });
 });
 
 const DRIVE_WORDS: Record<string, string> = {

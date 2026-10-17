@@ -123,3 +123,12 @@ describe('the listing cache is bounded', () => {
     expect(_listCacheSize()).toBe(LIST_CACHE_MAX);
   });
 });
+
+describe('is Drive set up here', () => {
+  it('missing, unreadable, or ok — never the value', async () => {
+    const { driveSetupState } = await import('./drive.js');
+    expect(driveSetupState({})).toBe('missing');
+    expect(driveSetupState({ GOOGLE_DRIVE_SA_JSON: '{"client_email": "x"' })).toBe('unreadable');
+    expect(driveSetupState({ GOOGLE_DRIVE_SA_JSON: Buffer.from('{"client_email":"a","private_key":"k"}').toString('base64') })).toBe('ok');
+  });
+});

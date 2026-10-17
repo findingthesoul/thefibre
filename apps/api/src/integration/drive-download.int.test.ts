@@ -85,7 +85,9 @@ beforeAll(async () => {
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   process.env.GOOGLE_DRIVE_SA_JSON = Buffer.from(JSON.stringify({ client_email: 'dl@int.iam.gserviceaccount.com', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) })).toString('base64');
   process.env.SSO_INTERNAL_SECRET ??= 'int-drive-secret';
-  process.env.PUBLIC_API_URL = 'https://api.int.example';
+  // The stream URL is this API's origin FROM THE REQUEST (publicOrigin), so
+  // the test pins it through API_PUBLIC_URL, which publicOrigin honours.
+  process.env.API_PUBLIC_URL = 'https://api.int.example';
   const { appContext } = await import('../middleware/app-context.js');
   const { membershipRoutes } = await import('../routes/membership.js');
   const { portalRoutes } = await import('../routes/portal.js');

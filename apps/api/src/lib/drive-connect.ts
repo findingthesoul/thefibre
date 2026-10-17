@@ -31,7 +31,6 @@ import {
   signDownload,
   toItem,
 } from './drive.js';
-import { publicApiUrl } from './public-url.js';
 import { addDriveDocument, isDrive, memberCommunities, readMemberPage, visibleTo, type DriveDocument } from './member-page.js';
 
 export type ConnectError =
@@ -171,7 +170,11 @@ async function fileUnderRoot(doc: DriveDocument, fileId: string): Promise<Under>
 }
 
 /** POST …/download: a 60-second link to the API's own stream. */
-export async function prepareDownload(email: string, ws: string, docId: string, fileId: unknown, now = Date.now()) {
+/** `origin` is THIS API's public origin, from the request (publicOrigin in
+ *  routes/mcp-discovery.ts — the Stripe callback's lesson): a configured
+ *  fallback pointing at production would send a staging member to the
+ *  production API, where a staging token can never verify. */
+export async function prepareDownload(email: string, ws: string, docId: string, fileId: unknown, origin: string, now = Date.now()) {
   const a = await admitted(email, ws, docId);
   if (!a) return { error: { status: 404, code: 'not_found' } as DownloadError };
   if (typeof fileId !== 'string') return { error: { status: 404, code: 'not_found' } as DownloadError };
@@ -179,7 +182,7 @@ export async function prepareDownload(email: string, ws: string, docId: string, 
   if ('error' in f) return { error: f.error };
   const token = signDownload({ w: ws, d: docId, f: fileId, p: a.personId }, now);
   return {
-    url: `${publicApiUrl()}/api/v1/me/portal/drive-download?token=${encodeURIComponent(token)}`,
+    url: `${origin}/api/v1/me/portal/drive-download?token=${encodeURIComponent(token)}`,
     expires_at: new Date(now + 60_000).toISOString(),
     filename: downloadName(f.item.name, f.item.export_as),
     export_as: f.item.export_as,
