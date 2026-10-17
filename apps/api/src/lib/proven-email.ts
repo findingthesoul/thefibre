@@ -25,8 +25,69 @@
 // backfilled once at migration time for addresses that matched a linked
 // user's email. Nothing has written it since, so it has been going stale from
 // the day it was created; markEmailProven is what keeps it true.
+//
+// PROVING THE MAILBOX IS NOT PROVING THE PERSON (2026-10-17). Until then,
+// signing in stamped EVERY contact point holding the address — including one
+// an organiser had typed onto somebody's record (a typo, a partner's, an
+// assistant's, office@). Its owner signing in then became that person in the
+// portal: their invoices, tickets and memberships, and acting as them. So a
+// sign-in stamps a point only when there is EVIDENCE that this address was
+// used for THIS person by the person themselves (pointsWithEvidence below).
+// Evidence lives on the person row, and a person row belongs to one
+// workspace, so evidence in one workspace never stamps a point in another.
 
 import { adminClient } from '../db.js';
+import { serviceRole } from './tenant-db.js';
+
+// Why these reads cross workspaces: they are keyed on the address a
+// participant has just PROVEN they receive mail at, and on the person rows
+// carrying it — the portal answers across every community that address is in,
+// by design. Each result is still filtered to the matching person ids.
+
+/**
+ * The evidence rule, pure. A contact point carrying `value` on person P may
+ * be stamped verified only if P shows the participant's OWN use of that
+ * address:
+ *   · a purchase on P paid with it (purchase.payer_email),
+ *   · a Meet booking on P made with it (meet_booking.invitee_email),
+ *   · an account linked to P with it (user.email),
+ *   · or it was the primary address of a person merged INTO P — the same
+ *     trust any person.email carries today (a merge moves that address onto
+ *     the keeper as a contact point; refusing it is the lockout v1.103.0
+ *     fixed).
+ * An address that only an organiser typed has none of these, so it never
+ * grants access.
+ */
+export function pointsWithEvidence(
+  points: { id: string; person_id: string }[],
+  evidencedPersonIds: Set<string>,
+): string[] {
+  return points.filter((p) => evidencedPersonIds.has(p.person_id)).map((p) => p.id);
+}
+
+/** The person ids among `personIds` that show evidence for `value`. */
+async function evidencedPersons(value: string, personIds: string[]): Promise<Set<string>> {
+  const db = serviceRole('portal identity: keyed on a proven email address and its person ids, across workspaces by design');
+  const [purchases, bookings, users, merges] = await Promise.all([
+    db.from('purchase').select('person_id').in('person_id', personIds).eq('payer_email', value),
+    db.from('meet_booking').select('invitee_person_id').in('invitee_person_id', personIds).eq('invitee_email', value),
+    db.from('user').select('person_id').in('person_id', personIds).eq('email', value),
+    db.from('person_merge').select('kept_person_id, merged_person_id').in('kept_person_id', personIds),
+  ]);
+  for (const r of [purchases, bookings, users, merges]) if (r.error) throw new Error(`evidence: ${r.error.message}`);
+  const out = new Set<string>();
+  for (const r of purchases.data ?? []) if (r.person_id) out.add(r.person_id as string);
+  for (const r of bookings.data ?? []) if (r.invitee_person_id) out.add(r.invitee_person_id as string);
+  for (const r of users.data ?? []) if (r.person_id) out.add(r.person_id as string);
+  const mergedInto = new Map<string, string>();
+  for (const m of merges.data ?? []) mergedInto.set(m.merged_person_id as string, m.kept_person_id as string);
+  if (mergedInto.size) {
+    const merged = await db.from('person').select('id').in('id', [...mergedInto.keys()]).eq('email', value);
+    if (merged.error) throw new Error(`evidence (merged): ${merged.error.message}`);
+    for (const r of merged.data ?? []) out.add(mergedInto.get(r.id as string)!);
+  }
+  return out;
+}
 
 /**
  * Record that somebody has proven they receive mail at this address.
@@ -56,14 +117,25 @@ export async function markEmailProven(email: string, now = Date.now()): Promise<
   // case below already accepts.
   const last = stampedAt.get(value);
   if (last !== undefined && now - last < RESTAMP_AFTER_MS) return;
-  const { error } = await adminClient
-    .from('person_contact_point')
-    .update({ verified_at: new Date().toISOString() })
-    .eq('kind', 'email')
-    .eq('value', value)
-    .is('verified_at', null);
-  if (error) {
-    console.error('[proven-email] could not stamp verified_at', { error: error.message });
+  try {
+    const db = serviceRole('portal identity: keyed on a proven email address and its person ids, across workspaces by design');
+    const pending = await db
+      .from('person_contact_point')
+      .select('id, person_id')
+      .eq('kind', 'email')
+      .eq('value', value)
+      .is('verified_at', null);
+    if (pending.error) throw new Error(pending.error.message);
+    const points = (pending.data ?? []) as { id: string; person_id: string }[];
+    if (points.length) {
+      const ids = pointsWithEvidence(points, await evidencedPersons(value, [...new Set(points.map((p) => p.person_id))]));
+      if (ids.length) {
+        const { error } = await db.from('person_contact_point').update({ verified_at: new Date().toISOString() }).in('id', ids).is('verified_at', null);
+        if (error) throw new Error(error.message);
+      }
+    }
+  } catch (e) {
+    console.error('[proven-email] could not stamp verified_at', { error: (e as Error).message });
     return; // not remembered: a failure is retried on the next request
   }
   if (stampedAt.size >= STAMPED_MAX) stampedAt.clear();

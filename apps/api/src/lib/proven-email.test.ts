@@ -5,6 +5,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Each ATTEMPT is the read of the address's unverified contact points (since
+// 2026-10-17 a stamp needs evidence, so the read comes first). Nothing pending
+// here, so an attempt ends there.
 const updates: string[] = [];
 let failNext = false;
 
@@ -18,10 +21,10 @@ vi.mock('../db.js', () => {
       updates.push(value.v ?? '');
       const error = failNext ? { message: 'down' } : null;
       failNext = false;
-      return Promise.resolve({ error });
+      return Promise.resolve({ data: [], error });
     },
   });
-  return { adminClient: { from: () => ({ update: () => chain({}) }) } };
+  return { adminClient: { from: () => ({ select: () => chain({}) }) } };
 });
 
 const { markEmailProven } = await import('./proven-email.js');

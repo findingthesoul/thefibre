@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.4] — 2026-10-17
+
+### Security: signing in proves the mailbox, not the person; a typed address no longer opens somebody's portal (API)
+
+- **The hole (found while planning the merged-address fix, live since
+  v1.103.0).** The portal matches a signed-in address to `person.email`, or
+  to a contact point with `verified_at` set. `markEmailProven` stamped
+  `verified_at` on EVERY contact point holding the address, at each sign-in.
+  So an address an organiser had typed onto somebody's record (a typo, a
+  partner's, an assistant's, office@) became that person in my.thread the
+  moment its owner signed in: their invoices, tickets and memberships, and
+  acting as them. It stayed within one workspace.
+- **Now a sign-in stamps a point only with evidence** of the participant's
+  own use of that address for THAT person (`pointsWithEvidence` in
+  `lib/proven-email.ts`): a purchase on the person paid with it, a Meet
+  booking on the person made with it, an account linked to the person with
+  it, or it was the primary address of a person merged into this one (the
+  same trust any `person.email` carries). An organiser-typed address has
+  none of these and grants nothing. Evidence is on the person row, and a
+  person row belongs to one workspace, so evidence in one workspace never
+  stamps the same address in another (the coordinator's check).
+- **Stops new wrong stamps only.** Points already stamped stay stamped until
+  the un-stamp script (next release, dry run first; production is
+  Sjoerd's).
+- The new reads go through `serviceRole('<reason>')` (B6's boundary), keyed
+  on the proven address and its person ids.
+- New integration test `proven-email-evidence.int.test.ts` (staging, two
+  throwaway workspaces): an organiser-typed address grants nothing; a
+  merged-away address still reaches the keeper; a paid address reaches its
+  person (the positive control); the same paid address typed in another
+  workspace is not stamped. Shown to bite: with the old stamp-everything
+  rule, the typed and cross-workspace cases fail. The unit test of the
+  ten-minute cache follows the new read. API vitest 1328, tsc and scripts
+  tsc pass.
+
 ## [1.277.3] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 2, step 2: every Thread and Meet activity row says which thread or booking it is about (API)
