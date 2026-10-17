@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.261.1] — 2026-10-17
+
+### The client-value guard follows `@/` imports, and found a latent "Application error" in Thread
+
+- **`scripts/check-client-value-imports.mjs` now follows the app alias
+  `@/…`** (each app's own tsconfig `paths`, `@/*` → the app root), to a file
+  or a directory's index, as well as relative imports. Before, a server file
+  importing a value from a `'use client'` module through `@/` slipped past,
+  which is the same class of bug that broke my.thread's You page (v1.248.2)
+  and Members' Google addresses page (v1.250.0). The header now names the
+  known limits: default imports and PascalCase values pass, and package
+  imports (`@thefibre/shared/…`) are not followed. Test:
+  `check-client-value-imports.test.mjs` (6: a relative import, an `@/` file,
+  an `@/` directory index, components/hooks/types allowed, a plain module
+  and a client file allowed, package and unresolved imports ignored).
+- **It found two real hits, fixed here with builder 4's OK** (Thread is
+  their lane; they had no edits in these files).
+  `templates/page.tsx` and `threads/new/page.tsx` imported `EMPTY_LIBRARY`
+  from the `'use client'` `components/template-cards.tsx` as the fallback
+  for a failed `GET /thread/template-library`. On that failure the Templates
+  page reads `library.templates.length` on the server and would have thrown
+  "Application error" instead of showing the page without templates. The
+  value and its types moved to a plain `lib/template-library.ts` (the
+  pattern of `lib/thread-status-filter.ts`); `template-cards.tsx`
+  re-exports the types for its client importers, so nothing else changed.
+- Verified: Thread typechecks and its tests pass, and the guard passes on
+  the whole tree (0 offenders, 834 files). **Not exercised: the failure
+  path itself.** The library call is made on the server, where a browser
+  test cannot stub it, and no test-only switch was added. The pages are
+  checked rendering normally on staging after landing.
+
 ## [1.261.0] — 2026-10-17
 
 ### The automatic welcome is deleted once, and a copy of it is flagged; the Threads list opens on Active (API + Thread 4.20.0)

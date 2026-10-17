@@ -13,19 +13,12 @@ import { metaFor } from '@/lib/engagement-meta';
 import type { EngagementType } from '@/lib/thread-types';
 import { t, engagementTypeLabel, type UiKey } from '@/lib/i18n-ui';
 
-/** GET /api/v1/thread/template-library response. */
-export type LibraryTemplate = {
-  id: string;
-  available: boolean;
-  elements: { type: string; title: string; days: number }[];
-};
-export type TemplateLibrary = {
-  templates: LibraryTemplate[];
-  can_edit_structure: boolean;
-};
-
-/** Fallback when the library couldn't be fetched — hide pickers, gate open. */
-export const EMPTY_LIBRARY: TemplateLibrary = { templates: [], can_edit_structure: true };
+// The library's types live in a plain module (lib/template-library.ts) so
+// server pages can import the empty fallback; re-exported here for the
+// client-side importers. Types cross the client boundary safely; the VALUE is
+// imported from the plain module.
+import type { LibraryTemplate, TemplateLibrary } from '@/lib/template-library';
+export type { LibraryTemplate, TemplateLibrary };
 
 // Explicit id → catalog-key maps (the ids are stable; a new template is a
 // deploy on both sides, so an unknown id falls back to its raw id).

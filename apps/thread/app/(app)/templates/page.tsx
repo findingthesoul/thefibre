@@ -4,7 +4,8 @@ import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { apiFetch, ApiError } from '@/lib/api';
-import { EMPTY_LIBRARY, TemplateCard, type TemplateLibrary } from '@/components/template-cards';
+import { TemplateCard } from '@/components/template-cards';
+import { EMPTY_LIBRARY, type TemplateLibrary } from '@/lib/template-library';
 
 // Templates hub (Sjoerd 2026-07-02): one place for both template kinds.
 // Certificate templates live under /certificates (the builder);

@@ -3,7 +3,7 @@ import type { OrganiserRow, TeamOption } from '@/lib/thread-types';
 import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import { EMPTY_LIBRARY, type TemplateLibrary } from '@/components/template-cards';
+import { EMPTY_LIBRARY, type TemplateLibrary } from '@/lib/template-library';
 import { NewThreadForm } from './form';
 
 export default async function NewThreadPage({
