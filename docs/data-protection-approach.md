@@ -270,7 +270,11 @@ to extend rather than the place to fork.
   `delete from push_subscription where email = lower('<their email>')`. That
   is a hard delete, the exception Sjoerd approved on 2026-10-16: a push
   device is an identifier, not a record. Signing out already removes the
-  device it happens on.
+  device it happens on. Delete their calendar-invitation record too:
+  `delete from thread_calendar_held where email = lower('<their email>')`.
+  It is a delivery record (which session's invitation went to which address,
+  so a cancellation can reach it) that outlives the enrolment on purpose, and
+  is an identifier like the push device (coordinator, 2026-10-17).
 - **Retention**: Free workspaces archive after 13 months' inactivity
   (`retention_months`, `usage-meters.ts`); paid ones do not expire. *The
   `retention_policy` table exists and nothing reads it — §5 P2.*

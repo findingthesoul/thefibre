@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.269.0] — 2026-10-17
+
+### Calendar invitations, slice 1: a record of who holds which session (migration only)
+
+- Sjoerd's "Go" on the calendar plan:
+  - a rolling 6-week window of invitations, one mail per session;
+  - feed followers skipped;
+  - a CANCEL for every session when a whole thread ends;
+  - existing members included at launch, behind a switch he flips after a
+    dry run.
+  Nothing reads the record yet.
+- `thread_calendar_held`: per (session, address), the last invitation we sent
+  — REQUEST (in their calendar) or CANCEL (taken out) — with its sequence and
+  which path sent it (`window` / `send` / `thread_end`).
+  - Until now an organiser's SEND kept no record per person, so there was
+    nothing to cancel against and no way to tell who already has a session.
+  - `unique (engagement_id, email)`. No foreign key on the session, on
+    purpose: a deleted session's CANCEL is what the row is for.
+  - RLS on with no policy: service role only, a delivery record.
+- The launch switch is `platform_setting` `calendar_window`: absent = OFF,
+  the calendar nudge's pattern. No row is written.
+- `docs/data-protection-approach.md`: the manual erasure steps now also
+  delete a person's `thread_calendar_held` rows (an identifier, like a push
+  device).
+- Test: `thread-calendar-held.int.test.ts`, run after the push — one row per
+  session and address, upsert in place, the checks, nobody signed in reads or
+  writes it, deletes cascade cleanly, and a user hard-delete leaves the rows
+  (email is not a key) for the erasure step.
+
 ## [1.268.2] — 2026-10-17
 
 ### A script that moves one member's one-off add-on onto her membership from her next renewal (operations; nothing user-facing changes)
